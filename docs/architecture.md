@@ -14,18 +14,25 @@ outlook-for-linux/
 │   ├── config.md
 │   └── gotchas.md
 └── src-tauri/
-    ├── Cargo.toml               # tauri 2, ctap-hid-fido2, webkit2gtk (Linux only)
+    ├── Cargo.toml               # tauri 2, ctap-hid-fido2, webkit2gtk/gtk/notify-rust (Linux only)
     ├── build.rs                 # declares the webauthn command in the app manifest
-    ├── tauri.conf.json          # remote URL, bundle targets; window is built in code
+    ├── tauri.conf.json          # remote URL, bundle targets, mailto scheme; window is built in code
+    ├── main.desktop             # .desktop template (default template misses %u in Exec)
     ├── capabilities/
-    │   ├── default.json         # core:default for the main window
+    │   ├── default.json         # core:default for main and compose windows
     │   └── webauthn.json        # grants the command to the login origins only
     ├── icons/                   # Outlook icon, generated RGBA sizes
     └── src/
-        ├── main.rs              # window creation, UA, polyfill injection
+        ├── main.rs              # window factory, UA, polyfill injection, notifications, mailto
         ├── webauthn.rs          # Rust CTAP2 client (the actual authenticator driver)
         └── webauthn_polyfill.js # PublicKeyCredential polyfill + overlay UI
 ```
+
+## Desktop integration
+
+- **Notifications**: the Linux webview hook allows WebKit's notification permission request and forwards each web notification to the desktop over DBus (notify-rust). OWA additionally has its own notification setting.
+- **mailto**: the bundled .desktop registers x-scheme-handler/mailto. A mailto launch is translated into OWA's compose deeplink and opened in a compose window; if the app is already running, the single-instance plugin forwards the second launch's argv to it. All windows come from one factory (`open_window`) so compose windows get the same UA, polyfill, and webview setup as the main window.
+- **Titlebar**: on Wayland, GTK CSS shrinks the client-side titlebar toward system height.
 
 ## WebAuthn: how it works
 

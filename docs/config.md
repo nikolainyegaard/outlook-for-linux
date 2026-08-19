@@ -10,6 +10,8 @@ No environment variables, no config files at runtime. Everything is compile-time
 | `app.windows` | `[]` | The window is built in code (main.rs) because injecting a document-start script requires the builder. |
 | `app.security.csp` | `null` | CSP is controlled by Microsoft's own headers, not by us. |
 | `bundle.targets` | deb, rpm, appimage | Linux only. |
+| `bundle.linux.deb/rpm.desktopTemplate` | `./main.desktop` | Custom template; the default one misses `%u` in Exec so mailto URLs never reach the app. |
+| `plugins.deep-link.desktop.schemes` | `["mailto"]` | Bundle-time only: makes the bundler add the MimeType line to the .desktop. The runtime deep-link plugin is not used; argv is parsed directly. |
 | `identifier` | `com.nikolainyegaard.outlookforlinux` | Do not change after first release; it keys desktop entries and data dirs. |
 
 ## main.rs constants
@@ -17,6 +19,7 @@ No environment variables, no config files at runtime. Everything is compile-time
 | Const | Value | Notes |
 |-------|-------|-------|
 | `OWA_URL` | `https://outlook.office.com/mail/` | The wrapped page. Keep in sync with `frontendDist`. |
+| `COMPOSE_URL` | OWA compose deeplink | Target for translated mailto links. |
 | `USER_AGENT` | Chrome on Linux | Required for Microsoft to offer passkey sign-in at all; see gotchas.md. Bump the Chrome version occasionally. |
 
 ## webauthn.rs / capabilities/webauthn.json
@@ -25,4 +28,4 @@ No environment variables, no config files at runtime. Everything is compile-time
 
 ## Cargo
 
-`ctap-hid-fido2` needs `libudev-dev` on the build machine. `webkit2gtk` is a Linux-only dependency used to set WebKitSettings properties on the webview.
+`ctap-hid-fido2` needs `libudev-dev` on the build machine. Linux-only dependencies: `webkit2gtk` (WebKitSettings properties, notification signals), `gtk` (titlebar CSS; keep its version matching the gtk that tauri already pulls in, see Cargo.lock), `notify-rust` (desktop notifications over DBus). `tauri-plugin-single-instance` forwards second launches, which carries mailto arguments.

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Network;Email;
+Comment=Outlook on the web in a native window
+Exec=outlook-for-linux %u
+StartupWMClass=outlook-for-linux
+Icon=outlook-for-linux
+Name=Outlook for Linux
+Terminal=false
+Type=Application
+MimeType=x-scheme-handler/mailto

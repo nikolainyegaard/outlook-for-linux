@@ -10,6 +10,6 @@
       "https://login.live.com"
     ]
   },
-  "windows": ["main"],
+  "windows": ["main", "compose-*"],
   "permissions": ["allow-webauthn-get-assertion"]
 }

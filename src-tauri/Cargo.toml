@@ -1,6 +1,6 @@
 [package]
 name = "outlook-for-linux"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [build-dependencies]
@@ -8,12 +8,17 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
 ctap-hid-fido2 = "3"
 base64 = "0.22"
+percent-encoding = "2"
 
 [target."cfg(target_os = \"linux\")".dependencies]
 # enable-webauthn is set via GObject property (bindings lack the typed method)
 webkit2gtk = "2"
+# version pinned to the gtk that tauri/wry already pull in
+gtk = "0.18"
+notify-rust = "4"

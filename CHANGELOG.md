@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-19
+
+### Added
+
+- Desktop notifications: OWA's notification permission is granted and web notifications are shown as system notifications. Also enable notifications inside OWA settings
+- mailto handler: the app registers for mailto links and opens OWA's compose window with recipient, cc, bcc, subject and body filled in
+- Single instance: launching the app again focuses the existing window instead of starting a second copy
+
+### Changed
+
+- Slimmer titlebar on Wayland, close to system titlebar height (GTK's own titlebar is much taller by default)
+
 ## [0.2.0] - 2026-08-19
 
 ### Added
@@ -18,5 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nikolainyegaard/outlook-for-linux/releases/tag/v0.2.0
