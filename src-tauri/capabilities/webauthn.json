@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "webauthn",
+  "description": "Lets the Microsoft sign-in pages call the security key command. Scoped to the login origins: outlook.office.com counts as a local URL here (it is the app's frontendDist) and local is false, so the mail UI itself cannot reach this command.",
+  "local": false,
+  "remote": {
+    "urls": [
+      "https://login.microsoftonline.com",
+      "https://login.microsoft.com",
+      "https://login.live.com"
+    ]
+  },
+  "windows": ["main"],
+  "permissions": ["allow-webauthn-get-assertion"]
+}
