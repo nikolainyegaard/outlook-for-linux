@@ -1,0 +1,14 @@
+[package]
+name = "outlook-for-linux"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[target."cfg(target_os = \"linux\")".dependencies]
+# v2_40 feature gates set_enable_webauthn (WebKitGTK 2.40+)
+webkit2gtk = { version = "2", features = ["v2_40"] }
