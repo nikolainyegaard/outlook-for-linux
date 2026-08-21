@@ -32,7 +32,8 @@ outlook-for-linux/
 
 - **Notifications**: the Linux webview hook allows WebKit's notification permission request and forwards each web notification to the desktop over DBus (notify-rust). OWA additionally has its own notification setting.
 - **mailto**: the bundled .desktop registers x-scheme-handler/mailto. A mailto launch is translated into OWA's compose deeplink and opened in a compose window; if the app is already running, the single-instance plugin forwards the second launch's argv to it. All windows come from one factory (`open_window`) so compose windows get the same UA, polyfill, and webview setup as the main window.
-- **Titlebar**: on Wayland, GTK CSS shrinks the client-side titlebar toward system height.
+- **Titlebar**: the app runs via XWayland (GDK_BACKEND=x11 unless overridden) so the window manager draws the system titlebar and app icon; GTK3 on Wayland would draw its own tall bar instead. See gotchas.md.
+- **Tray**: closing the main window hides it to the tray and the app keeps running; the tray menu has Open, Hide, Refresh, Quit. The unread badge (red-dot icon variant plus tooltip count) is driven by watching the webview's title for OWA's "(N)" prefix. Compose windows close normally.
 
 ## WebAuthn: how it works
 

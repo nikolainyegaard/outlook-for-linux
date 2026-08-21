@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- Tray icon with Open, Hide, Refresh, and Quit; a red dot and tooltip count show unread mail
+- Closing the window hides the app to the tray and it keeps running (notifications and the unread badge stay live); quit from the tray menu
+
+### Changed
+
+- The app now runs via XWayland so the window manager draws the system titlebar with the app icon, replacing the GTK CSS titlebar tweak, which did not take effect
+
 ## [0.3.0] - 2026-08-19
 
 ### Added
@@ -30,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nikolainyegaard/outlook-for-linux/releases/tag/v0.2.0

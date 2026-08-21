@@ -9,6 +9,7 @@ Unofficial desktop wrapper for Outlook on the web (OWA), built with Tauri v2. Lo
 - Desktop notifications for new mail (also enable notifications in OWA's own settings)
 - Registers as mailto handler: email links open a prefilled OWA compose window; set it as the default email app in your desktop's settings
 - Single instance: relaunching focuses the existing window
+- Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu
 - Light footprint: no bundled Chromium, uses the system WebKitGTK
 
 ## Passkey support

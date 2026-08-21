@@ -3,11 +3,14 @@
 
 mod webauthn;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 const OWA_URL: &str = "https://outlook.office.com/mail/";
 const COMPOSE_URL: &str = "https://outlook.office.com/mail/deeplink/compose";
+
+const TRAY_UNREAD_ICON: &[u8] = include_bytes!("../icons/tray-unread.png");
+static TRAY_SHOWS_UNREAD: AtomicBool = AtomicBool::new(false);
 
 // Microsoft's login page offers passkey sign-in only to browsers on its FIDO
 // support matrix, decided by user-agent sniffing. WebKitGTK's default UA
@@ -56,6 +59,77 @@ fn open_compose(app: &AppHandle, mailto: &str) {
     }
 }
 
+/// Unread count from the page title: OWA puts "(N)" in document.title when
+/// there is unread mail. First "(N)" group wins, 0 otherwise.
+fn parse_unread(title: &str) -> u32 {
+    title
+        .split('(')
+        .nth(1)
+        .and_then(|rest| rest.split(')').next())
+        .and_then(|n| n.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn show_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+fn update_tray(app: &AppHandle, unread: u32) {
+    let Some(tray) = app.tray_by_id("tray") else { return };
+    let tooltip = if unread > 0 { format!("Outlook, {unread} unread") } else { "Outlook".into() };
+    let _ = tray.set_tooltip(Some(tooltip));
+    let show_unread = unread > 0;
+    // Only swap the icon when the unread state flips.
+    if TRAY_SHOWS_UNREAD.swap(show_unread, Ordering::Relaxed) != show_unread {
+        let icon = if show_unread {
+            tauri::image::Image::from_bytes(TRAY_UNREAD_ICON).ok()
+        } else {
+            app.default_window_icon().cloned()
+        };
+        let _ = tray.set_icon(icon);
+    }
+}
+
+// Menu modeled on the Electron teams-for-linux tray, trimmed to what this
+// wrapper actually has: Open, Hide, Refresh, Quit.
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    use tauri::tray::TrayIconBuilder;
+    let open = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
+    let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
+    let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(
+        app,
+        &[&open, &hide, &refresh, &PredefinedMenuItem::separator(app)?, &quit],
+    )?;
+    TrayIconBuilder::with_id("tray")
+        .icon(app.default_window_icon().expect("bundled window icon").clone())
+        .tooltip("Outlook")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => show_main(app),
+            "hide" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+            "refresh" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.eval("window.location.reload()");
+                }
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}
+
 /// All windows (main and compose) share the UA, the WebAuthn polyfill, and
 /// the Linux webview setup below.
 fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<WebviewWindow> {
@@ -83,8 +157,17 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
 
     let window = builder.build()?;
 
+    // The main window's page title carries the unread count; watch it to
+    // drive the tray badge.
     #[cfg(target_os = "linux")]
-    window.with_webview(|webview| {
+    let title_watcher = if label == "main" {
+        Some(window.app_handle().clone())
+    } else {
+        None
+    };
+
+    #[cfg(target_os = "linux")]
+    window.with_webview(move |webview| {
         use webkit2gtk::glib::prelude::*;
         use webkit2gtk::{NotificationExt, NotificationPermissionRequest, PermissionRequestExt, WebViewExt};
 
@@ -133,49 +216,50 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
             });
             true
         });
+
+        if let Some(app_handle) = title_watcher {
+            wv.connect_title_notify(move |wv| {
+                let title = wv.title().map(|t| t.to_string()).unwrap_or_default();
+                update_tray(&app_handle, parse_unread(&title));
+            });
+        }
     })?;
 
     Ok(window)
 }
 
 fn main() {
+    // Run via XWayland: the window manager then draws the system titlebar
+    // (slim, with the app icon), which GTK3 on Wayland replaces with its own
+    // much taller client-side bar. Overridable from the environment.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("GDK_BACKEND").is_none() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
+
     tauri::Builder::default()
         // Second launches (e.g. a mailto: click while running) land here in
         // the first instance instead of starting a new process.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             match argv.iter().find(|a| a.starts_with("mailto:")) {
                 Some(m) => open_compose(app, m),
-                None => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.set_focus();
-                    }
-                }
+                None => show_main(app),
             }
         }))
         .invoke_handler(tauri::generate_handler![webauthn::webauthn_get_assertion])
-        .setup(|app| {
-            // GTK draws its own titlebar on Wayland (client-side decoration)
-            // and its default is much taller than KDE/GNOME system titlebars.
-            // Slim it; the WM titlebar on X11 is unaffected.
-            #[cfg(target_os = "linux")]
-            {
-                use gtk::prelude::CssProviderExt;
-                let provider = gtk::CssProvider::new();
-                provider
-                    .load_from_data(
-                        b"window.csd headerbar.default-decoration { min-height: 0; padding: 1px 4px; }
-                          window.csd headerbar.default-decoration button.titlebutton { min-height: 22px; min-width: 22px; padding: 1px; margin: 0; }",
-                    )
-                    .expect("titlebar css parses");
-                if let Some(screen) = gtk::gdk::Screen::default() {
-                    gtk::StyleContext::add_provider_for_screen(
-                        &screen,
-                        &provider,
-                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-                    );
+        // Closing the main window hides it to the tray; the app keeps running
+        // so notifications and the unread badge stay live. Compose windows
+        // close normally. Tray "Quit" exits.
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
                 }
             }
-
+        })
+        .setup(|app| {
+            setup_tray(app.handle())?;
             open_window(app.handle(), "main", OWA_URL)?;
 
             // Launched directly as a mailto: handler while not yet running.
@@ -191,7 +275,16 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::mailto_to_compose;
+    use super::{mailto_to_compose, parse_unread};
+
+    #[test]
+    fn unread_from_title() {
+        assert_eq!(parse_unread("Inbox (5) - nikolai@example.com - Outlook"), 5);
+        assert_eq!(parse_unread("(2) Inbox - Outlook"), 2);
+        assert_eq!(parse_unread("Inbox - Outlook"), 0);
+        assert_eq!(parse_unread("Re: report (final) - Outlook"), 0);
+        assert_eq!(parse_unread(""), 0);
+    }
 
     #[test]
     fn mailto_translation() {

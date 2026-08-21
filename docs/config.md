@@ -28,4 +28,6 @@ No environment variables, no config files at runtime. Everything is compile-time
 
 ## Cargo
 
-`ctap-hid-fido2` needs `libudev-dev` on the build machine. Linux-only dependencies: `webkit2gtk` (WebKitSettings properties, notification signals), `gtk` (titlebar CSS; keep its version matching the gtk that tauri already pulls in, see Cargo.lock), `notify-rust` (desktop notifications over DBus). `tauri-plugin-single-instance` forwards second launches, which carries mailto arguments.
+`tauri` needs the `tray-icon` and `image-png` features (tray plus decoding the badge icon PNG); the tray requires libayatana-appindicator at runtime. `ctap-hid-fido2` needs `libudev-dev` on the build machine. Linux-only dependencies: `webkit2gtk` (WebKitSettings properties, notification signals) and `notify-rust` (desktop notifications over DBus). `tauri-plugin-single-instance` forwards second launches, which carries mailto arguments.
+
+Runtime environment: the app sets `GDK_BACKEND=x11` unless already set (see gotchas.md on titlebars). `WEBKIT_DISABLE_DMABUF_RENDERER=1` must never be set by default; it forces software rendering.
