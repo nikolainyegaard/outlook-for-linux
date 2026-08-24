@@ -1,6 +1,6 @@
 # Architecture
 
-Tauri v2 desktop wrapper around Outlook on the web. There is no local frontend: the main window loads https://outlook.office.com/mail/ directly, and `build.frontendDist` in tauri.conf.json points at the same URL. All app logic lives in the Rust side plus one injected script.
+Tauri v2 desktop wrapper around Outlook on the web. There is no local frontend: the main window loads https://outlook.office.com/mail/ directly, and `build.frontendDist` in tauri.conf.json points at the same URL. All app logic lives in the Rust side plus two injected scripts.
 
 ## File tree
 
@@ -25,15 +25,16 @@ outlook-for-linux/
     └── src/
         ├── main.rs              # window factory, UA, polyfill injection, notifications, mailto
         ├── webauthn.rs          # Rust CTAP2 client (the actual authenticator driver)
-        └── webauthn_polyfill.js # PublicKeyCredential polyfill + overlay UI
+        ├── webauthn_polyfill.js # PublicKeyCredential polyfill + overlay UI
+        └── unread_title.js      # DOM-driven unread count in title + new-mail notifications
 ```
 
 ## Desktop integration
 
-- **Notifications**: the Linux webview hook allows WebKit's notification permission request and forwards each web notification to the desktop over DBus (notify-rust). OWA additionally has its own notification setting.
+- **Notifications**: OWA never raises web notifications in this webview (its service worker bails out before calling showNotification, and WebKitGTK would not deliver service-worker notifications to the embedder anyway). The injected `unread_title.js` therefore drives everything from the page DOM: it polls the folder pane for the Inbox unread count and, on an increase, fires a page-context `Notification` per new message row with sender, subject and body preview parsed from the row's aria-label. The Rust side pre-grants notification permission for the OWA origins on the WebContext and forwards each notification to the desktop over DBus (notify-rust) with a desktop-entry hint so the app appears in the desktop's notification settings.
 - **mailto**: the bundled .desktop registers x-scheme-handler/mailto. A mailto launch is translated into OWA's compose deeplink and opened in a compose window; if the app is already running, the single-instance plugin forwards the second launch's argv to it. All windows come from one factory (`open_window`) so compose windows get the same UA, polyfill, and webview setup as the main window.
 - **Titlebar**: the app runs via XWayland (GDK_BACKEND=x11 unless overridden) so the window manager draws the system titlebar and app icon; GTK3 on Wayland would draw its own tall bar instead. See gotchas.md.
-- **Tray**: closing the main window hides it to the tray and the app keeps running; the tray menu has Open, Hide, Refresh, Quit. The unread badge (red-dot icon variant plus tooltip count) is driven by watching the webview's title for OWA's "(N)" prefix. Compose windows close normally.
+- **Tray**: closing the main window hides it to the tray and the app keeps running; the tray menu has Open, Hide, Refresh, Quit. The unread badge (red-dot icon variant plus tooltip count) is driven by watching the webview's title for a "(N)" prefix, which `unread_title.js` writes itself: OWA stopped putting the count in the title (reproducible in Firefox). Compose windows close normally.
 
 ## WebAuthn: how it works
 

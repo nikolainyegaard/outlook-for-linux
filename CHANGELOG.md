@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-25
+
+### Fixed
+
+- New-mail notifications actually work now: OWA never raises web notifications in WebKitGTK (its service worker bails out before showing anything), so the app reads the message list itself and shows a notification per new mail with sender, subject and body preview
+- The tray unread badge works again: OWA no longer puts the unread count in the tab title, so the app reads the count from the folder pane and writes the title prefix itself
+- Notifications carry a desktop-entry hint, so the app shows up in the desktop's per-app notification settings
+
 ## [0.4.0] - 2026-08-21
 
 ### Added
@@ -41,7 +49,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nikolainyegaard/outlook-for-linux/releases/tag/v0.2.0

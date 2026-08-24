@@ -22,6 +22,9 @@ const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KH
 // Tauri injects its IPC internals into the main frame only, so the polyfill
 // goes there too; it self-guards to the Microsoft login origins.
 const WEBAUTHN_POLYFILL: &str = include_str!("webauthn_polyfill.js");
+// Writes the Inbox unread count into the title, which OWA itself no longer
+// does; the title watcher below drives the tray badge and notifications.
+const UNREAD_TITLE: &str = include_str!("unread_title.js");
 
 static COMPOSE_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -61,13 +64,17 @@ fn open_compose(app: &AppHandle, mailto: &str) {
 
 /// Unread count from the page title: OWA puts "(N)" in document.title when
 /// there is unread mail. First "(N)" group wins, 0 otherwise.
-fn parse_unread(title: &str) -> u32 {
+// The "(N) " prefix is written by unread_title.js. None means the count is
+// not (yet) known, which is distinct from a known zero: only transitions
+// between known counts may raise a notification.
+fn parse_unread(title: &str) -> Option<u32> {
     title
-        .split('(')
-        .nth(1)
-        .and_then(|rest| rest.split(')').next())
-        .and_then(|n| n.trim().parse().ok())
-        .unwrap_or(0)
+        .strip_prefix('(')?
+        .split(')')
+        .next()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 fn show_main(app: &AppHandle) {
@@ -145,13 +152,14 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     .title("Outlook")
     .inner_size(1280.0, 800.0)
     .user_agent(USER_AGENT)
-    .initialization_script(WEBAUTHN_POLYFILL);
+    .initialization_script(WEBAUTHN_POLYFILL)
+    .initialization_script(UNREAD_TITLE);
 
     // Debug probe: log per page whether the polyfill installed.
     #[cfg(debug_assertions)]
     {
         builder = builder.initialization_script(
-            "console.log('[probe] ' + location.origin + ' PublicKeyCredential=' + typeof PublicKeyCredential + ' UA=' + navigator.userAgent)",
+            "console.log('[probe] ' + location.origin + ' PublicKeyCredential=' + typeof PublicKeyCredential + ' notifPermission=' + (typeof Notification === 'undefined' ? 'n/a' : Notification.permission) + ' UA=' + navigator.userAgent)",
         );
     }
 
@@ -169,7 +177,7 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     #[cfg(target_os = "linux")]
     window.with_webview(move |webview| {
         use webkit2gtk::glib::prelude::*;
-        use webkit2gtk::{NotificationExt, NotificationPermissionRequest, PermissionRequestExt, WebViewExt};
+        use webkit2gtk::{NotificationExt, NotificationPermissionRequest, PermissionRequestExt, WebContextExt, WebViewExt};
 
         let wv = webview.inner();
         if let Some(settings) = wv.settings() {
@@ -184,6 +192,27 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
             // Surface JS console messages on stdout in debug builds.
             #[cfg(debug_assertions)]
             settings.set_property("enable-write-console-messages-to-stdout", true);
+        }
+
+        // WebKit auto-denies a gestureless Notification.requestPermission
+        // without emitting permission-request, and OWA checks
+        // Notification.permission at load. Pre-grant the OWA origin at the
+        // context so the page reads "granted" from the start. Applied both
+        // directly and from the initialization signal, so it holds no matter
+        // when the web process consults it.
+        fn grant_notifications(ctx: &webkit2gtk::WebContext) {
+            // OWA redirects from the launch URL to outlook.cloud.microsoft;
+            // grant both so the permission holds wherever the mailbox lands.
+            let origins = [
+                webkit2gtk::SecurityOrigin::for_uri(OWA_URL),
+                webkit2gtk::SecurityOrigin::for_uri("https://outlook.cloud.microsoft/"),
+            ];
+            let refs: Vec<&webkit2gtk::SecurityOrigin> = origins.iter().collect();
+            ctx.initialize_notification_permissions(&refs, &[]);
+        }
+        if let Some(ctx) = wv.context() {
+            grant_notifications(&ctx);
+            ctx.connect_initialize_notification_permissions(|ctx| grant_notifications(ctx));
         }
 
         // OWA asks for Web Notification permission; WebKitGTK denies it
@@ -212,15 +241,28 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
                     .body(&body)
                     .appname("Outlook")
                     .icon("outlook-for-linux")
+                    .hint(notify_rust::Hint::DesktopEntry("Outlook for Linux".into()))
                     .show();
             });
             true
         });
 
         if let Some(app_handle) = title_watcher {
+            // New-mail notifications are raised page-side by unread_title.js
+            // (it has the sender and subject; this side only has a number)
+            // and arrive through the show-notification forwarder above. The
+            // title watcher only drives the tray badge. Known counts only:
+            // acting on a transient bare title (page navigations reset the
+            // title before unread_title.js rewrites it) would flicker the
+            // badge off.
             wv.connect_title_notify(move |wv| {
                 let title = wv.title().map(|t| t.to_string()).unwrap_or_default();
-                update_tray(&app_handle, parse_unread(&title));
+                let unread = parse_unread(&title);
+                #[cfg(debug_assertions)]
+                eprintln!("[title-watch] title={title:?} parsed_unread={unread:?}");
+                if let Some(current) = unread {
+                    update_tray(&app_handle, current);
+                }
             });
         }
     })?;

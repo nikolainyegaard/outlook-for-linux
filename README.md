@@ -6,7 +6,7 @@ Unofficial desktop wrapper for Outlook on the web (OWA), built with Tauri v2. Lo
 
 - Native window for Outlook on the web, no browser chrome
 - FIDO2 USB security key (passkey) sign-in, implemented in the app itself: WebKitGTK ships without WebAuthn, so the app injects a `PublicKeyCredential` polyfill on the Microsoft login pages and drives the key over USB HID (CTAP2) from Rust
-- Desktop notifications for new mail (also enable notifications in OWA's own settings)
+- Desktop notifications for new mail with sender, subject and body preview, read from the page itself (OWA never raises web notifications in WebKitGTK)
 - Registers as mailto handler: email links open a prefilled OWA compose window; set it as the default email app in your desktop's settings
 - Single instance: relaunching focuses the existing window
 - Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu
