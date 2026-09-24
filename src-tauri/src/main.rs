@@ -153,7 +153,16 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     .inner_size(1280.0, 800.0)
     .user_agent(USER_AGENT)
     .initialization_script(WEBAUTHN_POLYFILL)
-    .initialization_script(UNREAD_TITLE);
+    .initialization_script(UNREAD_TITLE)
+    // target=_blank links and window.open from OWA: without a handler the
+    // request dies silently in WebKitGTK. Hand http(s) URLs to the system
+    // browser and never open a second webview.
+    .on_new_window(|url, _features| {
+        if matches!(url.scheme(), "http" | "https") {
+            let _ = std::process::Command::new("xdg-open").arg(url.as_str()).spawn();
+        }
+        tauri::webview::NewWindowResponse::Deny
+    });
 
     // Debug probe: log per page whether the polyfill installed.
     #[cfg(debug_assertions)]
