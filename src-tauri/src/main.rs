@@ -158,6 +158,8 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     // request dies silently in WebKitGTK. Hand http(s) URLs to the system
     // browser and never open a second webview.
     .on_new_window(|url, _features| {
+        #[cfg(debug_assertions)]
+        eprintln!("[new-window] {url}");
         if matches!(url.scheme(), "http" | "https") {
             let _ = std::process::Command::new("xdg-open").arg(url.as_str()).spawn();
         }
@@ -186,10 +188,17 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     #[cfg(target_os = "linux")]
     window.with_webview(move |webview| {
         use webkit2gtk::glib::prelude::*;
-        use webkit2gtk::{NotificationExt, NotificationPermissionRequest, PermissionRequestExt, WebContextExt, WebViewExt};
+        use webkit2gtk::{NotificationExt, NotificationPermissionRequest, PermissionRequestExt, SettingsExt, WebContextExt, WebViewExt};
 
         let wv = webview.inner();
         if let Some(settings) = wv.settings() {
+            // OWA opens email links from a click handler that first awaits
+            // a Safe Links lookup, so window.open runs outside the user
+            // gesture. WebKitGTK blocks that by default (no create signal,
+            // nothing happens); the second click hits the cached lookup and
+            // opens synchronously. Allow it: on_new_window above never
+            // creates a webview anyway, it only hands URLs to the browser.
+            settings.set_javascript_can_open_windows_automatically(true);
             // Prefer WebKitGTK's own WebAuthn when a build has it; the
             // bindings lack a typed setter and most builds lack the
             // property, so set it by name behind a guard (set_property

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-13
+
+### Fixed
+
+- Links in emails open on the first click; previously the first click did nothing and only a second click opened the browser
+
 ## [0.4.2] - 2026-09-24
 
 ### Fixed
@@ -55,7 +61,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.3.0...v0.4.0
