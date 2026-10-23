@@ -2,6 +2,8 @@
 
 Unofficial desktop wrapper for Outlook on the web (OWA), built with Tauri v2. Loads https://outlook.office.com/mail/ in a native WebKitGTK window with working passkey and FIDO2 security key sign-in, which no distro WebKitGTK provides on its own.
 
+A spiritual companion to [teams-for-linux](https://github.com/IsmaelMartinez/teams-for-linux) by Ismael Martinez: the same idea, a native window around a Microsoft web app, for mail instead of Teams.
+
 ## Features
 
 - Native window for Outlook on the web, no browser chrome
