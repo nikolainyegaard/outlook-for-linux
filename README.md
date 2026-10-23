@@ -11,8 +11,13 @@ A spiritual companion to [teams-for-linux](https://github.com/IsmaelMartinez/tea
 - Desktop notifications for new mail with sender, subject and body preview, read from the page itself (OWA never raises web notifications in WebKitGTK)
 - Registers as mailto handler: email links open a prefilled OWA compose window; set it as the default email app in your desktop's settings
 - Single instance: relaunching focuses the existing window
-- Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu
+- Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu. Ctrl+O, Ctrl+H, Ctrl+R and Ctrl+Q open, hide, refresh and quit from the main window
 - Light footprint: no bundled Chromium, uses the system WebKitGTK
+- Custom app icon: pick any PNG from the tray menu, optionally copied into your icon theme so the taskbar and launcher follow
+
+## Custom app icon
+
+Tray menu, App Icon, Choose App Icon. The PNG is applied to the tray at once (with the unread badge drawn on top) and remembered in `~/.config/com.nikolainyegaard.outlookforlinux/config.json`. The window, taskbar and launcher icons come from the icon theme, not from the running app, so after choosing you are asked whether to also use it there. Yes copies the icon at every hicolor size to `~/.local/share/icons/hicolor/<size>x<size>/apps/outlook-for-linux.png`; it shows on the next start, on some desktops after you log in again. The checkbox under App Icon toggles those files at any time, and Reset to default removes them along with the custom icon. The theme files are outside the package and survive an uninstall; untick before removing the app to clean them up.
 
 ## Passkey support
 

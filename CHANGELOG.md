@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-23
+
+### Added
+
+- Ctrl+O, Ctrl+H, Ctrl+R and Ctrl+Q open, hide, refresh and quit from the main window, shown next to the tray menu items
+- App Icon in the tray menu: choose a PNG for the tray (unread badge included), optionally copied into the user icon theme so the window, taskbar and launcher follow; a checkbox toggles the theme copy and Reset to default removes everything again
+
 ## [0.5.0] - 2026-10-23
 
 ### Added
@@ -76,7 +83,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.1...v0.4.2

@@ -1,6 +1,16 @@
 # Configuration
 
-No environment variables, no config files at runtime. Everything is compile-time, split between `src-tauri/tauri.conf.json` and constants in `src-tauri/src/main.rs`.
+Everything is compile-time, split between `src-tauri/tauri.conf.json` and constants in `src-tauri/src/main.rs`, except one runtime file.
+
+## Runtime config
+
+`$XDG_CONFIG_HOME/com.nikolainyegaard.outlookforlinux/config.json`, written by the tray menu, read at start and on every tray icon change:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `app_icon` | string | `""` | Path of a custom PNG for the tray and window icon. Empty means the bundled icon. Also settable from the App Icon tray menu, which can copy it into the user icon theme (`~/.local/share/icons`) so the taskbar and launcher follow; those files outlive the package and are not written under Snap or Flatpak |
+
+The icon theme copy keeps its own manifest at `$XDG_DATA_HOME/outlook-for-linux/theme-icon.json`; see architecture.md.
 
 ## tauri.conf.json
 

@@ -2726,12 +2726,13 @@ dependencies = [
 
 [[package]]
 name = "outlook-for-linux"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
  "ctap-hid-fido2",
  "gtk",
+ "image",
  "notify-rust",
  "percent-encoding",
  "serde",
@@ -2740,6 +2741,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-single-instance",
  "webkit2gtk",
+ "zbus",
 ]
 
 [[package]]

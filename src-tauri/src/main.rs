@@ -1,6 +1,7 @@
 // Prevents an extra console window on Windows in release; harmless on Linux.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_icon;
 mod webauthn;
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -85,6 +86,63 @@ fn show_main(app: &AppHandle) {
     }
 }
 
+/// Tray image for the unread state: the custom icon when one is configured
+/// (badged by us), the bundled ones otherwise.
+fn tray_image(app: &AppHandle, unread: bool) -> Option<tauri::image::Image<'_>> {
+    if let Some(custom) = app_icon::load_image(&app_icon::load_config(app).app_icon) {
+        return Some(app_icon::to_tauri(if unread { app_icon::with_unread_dot(&custom) } else { custom }));
+    }
+    if unread {
+        tauri::image::Image::from_bytes(TRAY_UNREAD_ICON).ok()
+    } else {
+        app.default_window_icon().cloned()
+    }
+}
+
+/// Re-apply the configured icon to the tray and the main window. The window
+/// icon only takes on X11; on Wayland KWin reads it from the desktop file,
+/// which is what the icon theme copy in app_icon is for.
+fn apply_icon(app: &AppHandle) {
+    if let Some(tray) = app.tray_by_id("tray") {
+        let _ = tray.set_icon(tray_image(app, TRAY_SHOWS_UNREAD.load(Ordering::Relaxed)));
+    }
+    if let (Some(window), Some(icon)) = (app.get_webview_window("main"), tray_image(app, false)) {
+        let _ = window.set_icon(icon);
+    }
+}
+
+fn hide_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.hide();
+    }
+}
+
+fn refresh_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.eval("window.location.reload()");
+    }
+}
+
+/// Ctrl shortcuts matching the tray menu labels, same keys as teams-for-linux.
+/// Window-level GTK accelerators run before the webview sees the key, so
+/// these shadow OWA's own Ctrl+O, Ctrl+R (reply) and Ctrl+Q (mark as read).
+#[cfg(target_os = "linux")]
+fn bind_shortcuts(window: &WebviewWindow) -> tauri::Result<()> {
+    use gtk::prelude::{AccelGroupExtManual, GtkWindowExt};
+    let group = gtk::AccelGroup::new();
+    let actions: [(char, fn(&AppHandle)); 4] =
+        [('o', show_main), ('h', hide_main), ('r', refresh_main), ('q', |app| app.exit(0))];
+    for (key, action) in actions {
+        let app = window.app_handle().clone();
+        group.connect_accel_group(key as u32, gtk::gdk::ModifierType::CONTROL_MASK, gtk::AccelFlags::VISIBLE, move |_, _, _, _| {
+            action(&app);
+            true
+        });
+    }
+    window.gtk_window()?.add_accel_group(&group);
+    Ok(())
+}
+
 fn update_tray(app: &AppHandle, unread: u32) {
     let Some(tray) = app.tray_by_id("tray") else { return };
     let tooltip = if unread > 0 { format!("Outlook, {unread} unread") } else { "Outlook".into() };
@@ -92,49 +150,83 @@ fn update_tray(app: &AppHandle, unread: u32) {
     let show_unread = unread > 0;
     // Only swap the icon when the unread state flips.
     if TRAY_SHOWS_UNREAD.swap(show_unread, Ordering::Relaxed) != show_unread {
-        let icon = if show_unread {
-            tauri::image::Image::from_bytes(TRAY_UNREAD_ICON).ok()
-        } else {
-            app.default_window_icon().cloned()
-        };
-        let _ = tray.set_icon(icon);
+        let _ = tray.set_icon(tray_image(app, show_unread));
     }
 }
 
 // Menu modeled on the Electron teams-for-linux tray, trimmed to what this
-// wrapper actually has: Open, Hide, Refresh, Quit.
-fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-    use tauri::tray::TrayIconBuilder;
-    let open = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
-    let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
-    let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(
+// wrapper actually has: Open, Hide, Refresh, App Icon, Quit.
+fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+    // The shortcut text sits in the label after a tab (Plasma draws it as a
+    // shortcut column): muda only registers menu accelerators for window
+    // menubars, not tray menus. The keys themselves are bound in open_window.
+    let open = MenuItem::with_id(app, "open", "Open\tCtrl+O", true, None::<&str>)?;
+    let hide = MenuItem::with_id(app, "hide", "Hide\tCtrl+H", true, None::<&str>)?;
+    let refresh = MenuItem::with_id(app, "refresh", "Refresh\tCtrl+R", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit\tCtrl+Q", true, None::<&str>)?;
+    let has_custom = !app_icon::load_config(app).app_icon.is_empty();
+    let choose = MenuItem::with_id(app, "icon-choose", "Choose App Icon…", true, None::<&str>)?;
+    let theme = CheckMenuItem::with_id(
         app,
-        &[&open, &hide, &refresh, &PredefinedMenuItem::separator(app)?, &quit],
+        "icon-theme",
+        "Also use it for the taskbar and launcher",
+        has_custom,
+        has_custom && app_icon::installed(),
+        None::<&str>,
     )?;
+    let reset = MenuItem::with_id(app, "icon-reset", "Reset to default", has_custom, None::<&str>)?;
+    let icon_menu = if app_icon::supported() {
+        Submenu::with_items(app, "App Icon", true, &[&choose, &theme, &reset])?
+    } else {
+        Submenu::with_items(app, "App Icon", true, &[&choose, &reset])?
+    };
+    Menu::with_items(
+        app,
+        &[
+            &open,
+            &hide,
+            &refresh,
+            &PredefinedMenuItem::separator(app)?,
+            &icon_menu,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
+    )
+}
+
+/// The App Icon items reflect config and theme state, so the menu is rebuilt
+/// after every change there.
+fn rebuild_tray_menu(app: &AppHandle) {
+    if let (Some(tray), Ok(menu)) = (app.tray_by_id("tray"), tray_menu(app)) {
+        let _ = tray.set_menu(Some(menu));
+    }
+}
+
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::tray::TrayIconBuilder;
     TrayIconBuilder::with_id("tray")
         .icon(app.default_window_icon().expect("bundled window icon").clone())
         .tooltip("Outlook")
-        .menu(&menu)
+        .menu(&tray_menu(app)?)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),
-            "hide" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
-                }
-            }
-            "refresh" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.eval("window.location.reload()");
-                }
-            }
+            "hide" => hide_main(app),
+            "refresh" => refresh_main(app),
+            // GTK dialogs: make sure these run on the main thread.
+            "icon-choose" => on_main(app, app_icon::choose),
+            "icon-theme" => on_main(app, app_icon::toggle_theme),
+            "icon-reset" => on_main(app, app_icon::reset),
             "quit" => app.exit(0),
             _ => {}
         })
         .build(app)?;
     Ok(())
+}
+
+fn on_main(app: &AppHandle, f: fn(&AppHandle)) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || f(&handle));
 }
 
 /// All windows (main and compose) share the UA, the WebAuthn polyfill, and
@@ -187,6 +279,9 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     {
         use gtk::prelude::GtkWindowExt;
         window.gtk_window()?.set_titlebar(None::<&gtk::Widget>);
+        if label == "main" {
+            bind_shortcuts(&window)?;
+        }
     }
     window.show()?;
 
@@ -327,6 +422,7 @@ fn main() {
         .setup(|app| {
             setup_tray(app.handle())?;
             open_window(app.handle(), "main", OWA_URL)?;
+            apply_icon(app.handle());
 
             // Launched directly as a mailto: handler while not yet running.
             if let Some(m) = std::env::args().find(|a| a.starts_with("mailto:")) {

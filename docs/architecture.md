@@ -24,7 +24,8 @@ outlook-for-linux/
     │   └── webauthn.json        # grants the command to the login origins only
     ├── icons/                   # Outlook icon, generated RGBA sizes
     └── src/
-        ├── main.rs              # window factory, UA, polyfill injection, notifications, mailto
+        ├── main.rs              # window factory, UA, polyfill injection, notifications, mailto, tray
+        ├── app_icon.rs          # App Icon menu: config.json, tray badge, icon theme copy
         ├── webauthn.rs          # Rust CTAP2 client (the actual authenticator driver)
         ├── webauthn_polyfill.js # PublicKeyCredential polyfill + overlay UI
         └── unread_title.js      # DOM-driven unread count in title + new-mail notifications
@@ -34,6 +35,7 @@ outlook-for-linux/
 
 - **Notifications**: OWA never raises web notifications in this webview (its service worker bails out before calling showNotification, and WebKitGTK would not deliver service-worker notifications to the embedder anyway). The injected `unread_title.js` therefore drives everything from the page DOM: it polls the folder pane for the Inbox unread count and, on an increase, fires a page-context `Notification` per new message row with sender, subject and body preview parsed from the row's aria-label. The Rust side pre-grants notification permission for the OWA origins on the WebContext and forwards each notification to the desktop over DBus (notify-rust) with a desktop-entry hint so the app appears in the desktop's notification settings.
 - **mailto**: the bundled .desktop registers x-scheme-handler/mailto. A mailto launch is translated into OWA's compose deeplink and opened in a compose window; if the app is already running, the single-instance plugin forwards the second launch's argv to it. All windows come from one factory (`open_window`) so compose windows get the same UA, polyfill, and webview setup as the main window.
+- **App icon**: the tray menu's App Icon submenu is a port of teams-for-linux's App Icon menu (its `themeIcon.js`). The chosen PNG is stored in config.json and applied live to the tray; the window, taskbar and launcher icons are resolved by the desktop from the icon theme by name, so the user can opt in to a copy of the icon at every hicolor size under `$XDG_DATA_HOME/icons/hicolor`, named after the `Icon=` of the desktop entry that launches this binary. Written paths are recorded in `$XDG_DATA_HOME/outlook-for-linux/theme-icon.json` so removal only deletes what the app wrote. After writing, the theme directory mtime is touched (GTK desktops) and `org.kde.KIconLoader.iconChanged` is sent (KDE).
 - **Titlebar**: native Wayland. The window drops the header bar tao installs on Wayland before it is shown, so GTK negotiates server-side decorations and KWin draws the system titlebar and app icon. See gotchas.md.
 - **Tray**: closing the main window hides it to the tray and the app keeps running; the tray menu has Open, Hide, Refresh, Quit. The unread badge (red-dot icon variant plus tooltip count) is driven by watching the webview's title for a "(N)" prefix, which `unread_title.js` writes itself: OWA stopped putting the count in the title (reproducible in Firefox). Compose windows close normally.
 
