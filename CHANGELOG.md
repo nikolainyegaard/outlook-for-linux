@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.5.0] - 2026-10-23
 
+### Added
+
+- Releases are built by GitHub Actions on a version tag, for x86_64 and aarch64: deb, rpm, AppImage, tarball and checksums
+
 ### Fixed
 
 - Pasting from other apps into a message works with Ctrl+V (previously only Ctrl+Shift+V worked); the XWayland clipboard bridge hid the text from the editor

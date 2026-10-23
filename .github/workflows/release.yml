@@ -1,0 +1,86 @@
+name: release
+
+# On a version tag: build the Tauri app natively on the oldest Ubuntu runner
+# for x86_64 and aarch64 (the deb and rpm then run on Ubuntu 22.04, Debian 12,
+# Fedora 37, RHEL 9 and anything newer; the AppImage bundles GTK and WebKit for
+# older systems), attach deb, rpm, AppImage, tarball and checksums to a GitHub
+# release with the changelog section as its notes.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check that the tag matches the app version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CONF=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          test "$VERSION" = "$CONF" || { echo "tag $VERSION does not match tauri.conf.json $CONF"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Install the Tauri build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Collect the bundles
+        run: |
+          mkdir -p dist
+          cp src-tauri/target/release/bundle/deb/*.deb src-tauri/target/release/bundle/rpm/*.rpm src-tauri/target/release/bundle/appimage/*.AppImage dist/
+      - name: Tarball
+        run: |
+          STAGE=outlook-for-linux-${VERSION}-${{ matrix.arch }}
+          mkdir -p stage/$STAGE
+          cp src-tauri/target/release/outlook-for-linux src-tauri/main.desktop src-tauri/icons/icon.png README.md CHANGELOG.md stage/$STAGE/
+          tar -C stage -czf dist/$STAGE.tar.gz $STAGE
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.arch }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS
+      - name: Release notes from the changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          printf '\nThe deb and rpm need a system webkit2gtk-4.1 (Ubuntu 22.04, Debian 12, Fedora 37, RHEL 9 or newer). The AppImage bundles it. The aarch64 builds are untested; please report what you find.\n' >> notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md

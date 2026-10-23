@@ -6,6 +6,7 @@ Tauri v2 desktop wrapper around Outlook on the web. There is no local frontend: 
 
 ```
 outlook-for-linux/
+├── .github/workflows/release.yml # tag push: build x86_64 and aarch64 bundles, publish the release
 ├── package.json                 # npm scripts wrapping the Tauri CLI
 ├── README.md
 ├── CHANGELOG.md
