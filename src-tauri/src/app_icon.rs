@@ -18,7 +18,7 @@ const DEFAULT_NAME: &str = "outlook-for-linux";
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub struct Config {
-    /// Path of the custom PNG; empty means the bundled icon.
+    /// Path of the custom icon (PNG or SVG); empty means the bundled icon.
     #[serde(default)]
     pub app_icon: String,
 }
@@ -45,8 +45,23 @@ fn save_config(app: &AppHandle, config: &Config) {
     }
 }
 
+/// Decoded through gdk-pixbuf, so anything the desktop can open works,
+/// SVG included (rendered at 512 px through the librsvg loader).
 pub fn load_image(path: &str) -> Option<RgbaImage> {
-    (!path.is_empty()).then(|| image::open(path).ok().map(|i| i.to_rgba8())).flatten()
+    use gtk::gdk_pixbuf::Pixbuf;
+    if path.is_empty() {
+        return None;
+    }
+    let svg = Path::new(path).extension().is_some_and(|e| e.eq_ignore_ascii_case("svg") || e.eq_ignore_ascii_case("svgz"));
+    let pixbuf = if svg { Pixbuf::from_file_at_scale(path, 512, 512, true) } else { Pixbuf::from_file(path) }.ok()?;
+    let pixbuf = if pixbuf.has_alpha() { pixbuf } else { pixbuf.add_alpha(false, 0, 0, 0).ok()? };
+    let (w, h, stride) = (pixbuf.width() as usize, pixbuf.height() as usize, pixbuf.rowstride() as usize);
+    let bytes = pixbuf.read_pixel_bytes();
+    let mut rgba = Vec::with_capacity(w * h * 4);
+    for row in bytes.chunks(stride).take(h) {
+        rgba.extend_from_slice(row.get(..w * 4)?);
+    }
+    RgbaImage::from_raw(w as u32, h as u32, rgba)
 }
 
 pub fn to_tauri(image: RgbaImage) -> tauri::image::Image<'static> {
@@ -266,8 +281,9 @@ fn message(app: &AppHandle, kind: gtk::MessageType, buttons: gtk::ButtonsType, t
 
 pub fn choose(app: &AppHandle) {
     let filter = gtk::FileFilter::new();
-    filter.set_name(Some("PNG images"));
+    filter.set_name(Some("Images (PNG, SVG)"));
     filter.add_pattern("*.png");
+    filter.add_pattern("*.svg");
     let dialog = gtk::FileChooserNative::new(
         Some("Choose App Icon"),
         main_gtk_window(app).as_ref(),
@@ -330,7 +346,17 @@ pub fn reset(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{icon_from_desktop, resized, with_unread_dot};
+    use super::{icon_from_desktop, load_image, resized, with_unread_dot};
+
+    #[test]
+    fn svg_decodes_through_pixbuf() {
+        let svg = load_image(concat!(env!("CARGO_MANIFEST_DIR"), "/icons/icon.svg")).expect("librsvg pixbuf loader");
+        assert_eq!(svg.dimensions(), (512, 512));
+        assert_eq!(svg.get_pixel(256, 256).0[3], 255);
+        let png = load_image(concat!(env!("CARGO_MANIFEST_DIR"), "/icons/32x32.png")).expect("png");
+        assert_eq!(png.dimensions(), (32, 32));
+        assert!(load_image("/nonexistent.svg").is_none());
+    }
 
     #[test]
     fn icon_name_from_desktop_entry() {

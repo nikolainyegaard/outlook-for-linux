@@ -8,7 +8,7 @@ Everything is compile-time, split between `src-tauri/tauri.conf.json` and consta
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `app_icon` | string | `""` | Path of a custom PNG for the tray and window icon. Empty means the bundled icon. Also settable from the App Icon tray menu, which can copy it into the user icon theme (`~/.local/share/icons`) so the taskbar and launcher follow; those files outlive the package and are not written under Snap or Flatpak |
+| `app_icon` | string | `""` | Path of a custom PNG or SVG for the tray and window icon. Empty means the bundled icon. Also settable from the App Icon tray menu, which can copy it into the user icon theme (`~/.local/share/icons`) so the taskbar and launcher follow; those files outlive the package and are not written under Snap or Flatpak |
 
 The icon theme copy keeps its own manifest at `$XDG_DATA_HOME/outlook-for-linux/theme-icon.json`; see architecture.md.
 

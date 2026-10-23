@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-23
+
+### Changed
+
+- The icon picker takes SVG files directly, no conversion to PNG needed
+
 ## [0.6.0] - 2026-10-23
 
 ### Added
@@ -87,7 +93,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.2...v0.4.3

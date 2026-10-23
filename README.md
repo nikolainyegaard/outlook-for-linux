@@ -13,15 +13,14 @@ A spiritual companion to [teams-for-linux](https://github.com/IsmaelMartinez/tea
 - Single instance: relaunching focuses the existing window
 - Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu. Ctrl+O, Ctrl+H, Ctrl+R and Ctrl+Q open, hide, refresh and quit from the main window
 - Light footprint: no bundled Chromium, uses the system WebKitGTK
-- Custom app icon: pick any PNG from the tray menu, optionally copied into your icon theme so the taskbar and launcher follow; see [App icon](#app-icon) for the official logo
+- Custom app icon: pick any PNG or SVG from the tray menu, optionally copied into your icon theme so the taskbar and launcher follow; see [App icon](#app-icon) for the official logo
 
 ## App icon
 
 The tray menu has an icon picker, so the app can wear any icon you like, for example Outlook's own, available on [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Microsoft_Outlook_Icon_(2025%E2%80%93present).svg):
 
 1. Download the SVG from that page.
-2. Convert it to PNG, for example `rsvg-convert -w 512 -h 512 Microsoft_Outlook_Icon.svg -o outlook.png` (rsvg-convert comes with librsvg, installed on most desktops).
-3. Tray menu, App Icon, Choose App Icon, pick the PNG. Answer Yes when asked whether to also use it for the taskbar and launcher.
+2. Tray menu, App Icon, Choose App Icon, pick the file (PNG and SVG both work). Answer Yes when asked whether to also use it for the taskbar and launcher.
 
 The icon is applied to the tray at once (with the unread badge drawn on top) and remembered in `~/.config/com.nikolainyegaard.outlookforlinux/config.json`. The window, taskbar and launcher icons come from the icon theme, not from the running app, which is what the Yes answer is for: it copies the icon at every hicolor size to `~/.local/share/icons/hicolor/<size>x<size>/apps/outlook-for-linux.png`, and it shows on the next start, on some desktops after you log in again. The checkbox under App Icon toggles those files at any time, and Reset to default removes them along with the custom icon. The theme files are outside the package and survive an uninstall; untick before removing the app to clean them up.
 
