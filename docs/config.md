@@ -30,4 +30,4 @@ No environment variables, no config files at runtime. Everything is compile-time
 
 `tauri` needs the `tray-icon` and `image-png` features (tray plus decoding the badge icon PNG); the tray requires libayatana-appindicator at runtime. `ctap-hid-fido2` needs `libudev-dev` on the build machine. Linux-only dependencies: `webkit2gtk` (WebKitSettings properties, notification signals) and `notify-rust` (desktop notifications over DBus). `tauri-plugin-single-instance` forwards second launches, which carries mailto arguments.
 
-Runtime environment: the app sets `GDK_BACKEND=x11` unless already set (see gotchas.md on titlebars). `WEBKIT_DISABLE_DMABUF_RENDERER=1` must never be set by default; it forces software rendering.
+`productName` is `outlook-for-linux` on purpose: the bundler names the .desktop file after it, and KWin on Wayland finds the window icon by matching the app id (the binary name) to that file name. The launcher label comes from `Name=` in main.desktop. Runtime environment: `WEBKIT_DISABLE_DMABUF_RENDERER=1` must never be set by default; it forces software rendering.

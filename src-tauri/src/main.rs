@@ -154,6 +154,9 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     .user_agent(USER_AGENT)
     .initialization_script(WEBAUTHN_POLYFILL)
     .initialization_script(UNREAD_TITLE)
+    // Shown below, after the tao header bar is removed; set_titlebar only
+    // takes effect before the window is realized.
+    .visible(false)
     // target=_blank links and window.open from OWA: without a handler the
     // request dies silently in WebKitGTK. Hand http(s) URLs to the system
     // browser and never open a second webview.
@@ -175,6 +178,17 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
     }
 
     let window = builder.build()?;
+
+    // On Wayland tao installs its own GtkHeaderBar (client-side, tall, no
+    // app icon). Dropping it lets GTK negotiate server-side decorations
+    // through KWin's protocol, so the window manager draws the slim
+    // titlebar with the icon, like any native app.
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::GtkWindowExt;
+        window.gtk_window()?.set_titlebar(None::<&gtk::Widget>);
+    }
+    window.show()?;
 
     // The main window's page title carries the unread count; watch it to
     // drive the tray badge.
@@ -259,7 +273,7 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
                     .body(&body)
                     .appname("Outlook")
                     .icon("outlook-for-linux")
-                    .hint(notify_rust::Hint::DesktopEntry("Outlook for Linux".into()))
+                    .hint(notify_rust::Hint::DesktopEntry("outlook-for-linux".into()))
                     .show();
             });
             true
@@ -289,14 +303,6 @@ fn open_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result<Webview
 }
 
 fn main() {
-    // Run via XWayland: the window manager then draws the system titlebar
-    // (slim, with the app icon), which GTK3 on Wayland replaces with its own
-    // much taller client-side bar. Overridable from the environment.
-    #[cfg(target_os = "linux")]
-    if std::env::var_os("GDK_BACKEND").is_none() {
-        std::env::set_var("GDK_BACKEND", "x11");
-    }
-
     tauri::Builder::default()
         // Second launches (e.g. a mailto: click while running) land here in
         // the first instance instead of starting a new process.
@@ -339,11 +345,13 @@ mod tests {
 
     #[test]
     fn unread_from_title() {
-        assert_eq!(parse_unread("Inbox (5) - nikolai@example.com - Outlook"), 5);
-        assert_eq!(parse_unread("(2) Inbox - Outlook"), 2);
-        assert_eq!(parse_unread("Inbox - Outlook"), 0);
-        assert_eq!(parse_unread("Re: report (final) - Outlook"), 0);
-        assert_eq!(parse_unread(""), 0);
+        assert_eq!(parse_unread("(2) Inbox - Outlook"), Some(2));
+        assert_eq!(parse_unread("(0) Mail - Outlook"), Some(0));
+        // Only the prefix written by unread_title.js counts.
+        assert_eq!(parse_unread("Inbox (5) - nikolai@example.com - Outlook"), None);
+        assert_eq!(parse_unread("Inbox - Outlook"), None);
+        assert_eq!(parse_unread("Re: report (final) - Outlook"), None);
+        assert_eq!(parse_unread(""), None);
     }
 
     #[test]
