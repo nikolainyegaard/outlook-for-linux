@@ -22,7 +22,7 @@ outlook-for-linux/
     ├── capabilities/
     │   ├── default.json         # core:default for main and compose windows
     │   └── webauthn.json        # grants the command to the login origins only
-    ├── icons/                   # Outlook icon, generated RGBA sizes
+    ├── icons/                   # envelope icon (icon.svg), generated RGBA sizes, badged tray variant
     └── src/
         ├── main.rs              # window factory, UA, polyfill injection, notifications, mailto, tray
         ├── app_icon.rs          # App Icon menu: config.json, tray badge, icon theme copy

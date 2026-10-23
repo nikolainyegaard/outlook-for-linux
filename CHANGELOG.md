@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Ctrl+O, Ctrl+H, Ctrl+R and Ctrl+Q open, hide, refresh and quit from the main window, shown next to the tray menu items
 - App Icon in the tray menu: choose a PNG for the tray (unread badge included), optionally copied into the user icon theme so the window, taskbar and launcher follow; a checkbox toggles the theme copy and Reset to default removes everything again
 
+### Changed
+
+- New envelope app icon; the tray menu can swap it for any PNG, Outlook's official icon included
+
 ## [0.5.0] - 2026-10-23
 
 ### Added
