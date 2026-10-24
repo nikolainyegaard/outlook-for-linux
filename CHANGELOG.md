@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-24
+
+### Added
+
+- Menubar on the main window: File (New Message, Hide, Quit), Edit (Cut, Copy, Paste, Select All), View (Refresh, Zoom In, Zoom Out, Actual Size) and Help (GitHub Repository, About)
+- Ctrl+=, Ctrl+- and Ctrl+0 zoom the page
+- Profiles: several accounts in one window, each with its own sign-in and storage, switched from a Profile dropdown at the right end of the menubar; the existing sign-in becomes the first profile. Deselected profiles unload after 15 minutes (`unload_after_minutes` in config.json: 0 at once, null never, `keep_awake` per profile), status dots and background unread counts in the dropdown, notifications from background profiles carry the profile name
+- Settings window (Edit > Settings, Ctrl+,) laid out like Outlook's: categories and search on the left, pages in the middle. Profiles lists every profile plus Add profile +, each with its own page (name, status with Switch to, keep loaded, remove); General holds Notifications, Background profiles (the unload timeout) and the app icon picker with the theme copy toggle. Replaces the App Icon submenu in the tray menu
+- Clicking a new-mail notification opens that message: the window comes forward, the profile is selected and the message is shown in the reading pane
+- Notification settings: master switch, only while the window is hidden or not focused, include the message preview, desktop sound, red dot on the tray icon, and a per-profile switch on each profile's page
+
+### Changed
+
+- Ctrl+H, Ctrl+R and Ctrl+Q are the menubar's shortcuts now; Ctrl+O is gone, Open stays in the tray menu
+
 ## [0.6.1] - 2026-10-23
 
 ### Changed
@@ -93,7 +108,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.4.3...v0.5.0

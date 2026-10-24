@@ -13,37 +13,10 @@ use gtk::prelude::*;
 use image::RgbaImage;
 use tauri::{AppHandle, Manager};
 
+use crate::config;
+
 const SIZES: [u32; 10] = [16, 22, 24, 32, 48, 64, 96, 128, 256, 512];
 const DEFAULT_NAME: &str = "outlook-for-linux";
-
-#[derive(Default, serde::Serialize, serde::Deserialize)]
-pub struct Config {
-    /// Path of the custom icon (PNG or SVG); empty means the bundled icon.
-    #[serde(default)]
-    pub app_icon: String,
-}
-
-fn config_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|d| d.join("config.json"))
-}
-
-pub fn load_config(app: &AppHandle) -> Config {
-    config_file(app)
-        .and_then(|f| fs::read(f).ok())
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .unwrap_or_default()
-}
-
-fn save_config(app: &AppHandle, config: &Config) {
-    let Some(file) = config_file(app) else { return };
-    let write = || -> std::io::Result<()> {
-        fs::create_dir_all(file.parent().unwrap_or(Path::new(".")))?;
-        fs::write(&file, serde_json::to_vec_pretty(config)?)
-    };
-    if let Err(e) = write() {
-        eprintln!("could not save config: {e}");
-    }
-}
 
 /// Decoded through gdk-pixbuf, so anything the desktop can open works,
 /// SVG included (rendered at 512 px through the librsvg loader).
@@ -257,20 +230,22 @@ fn remove() -> bool {
     true
 }
 
-// Tray menu actions. All run on the main thread (GTK dialogs need it).
+// Settings actions. All run on the main thread (GTK dialogs need it).
 
-fn main_gtk_window(app: &AppHandle) -> Option<gtk::ApplicationWindow> {
-    app.get_webview_window("main").and_then(|w| w.gtk_window().ok())
+/// Parent for dialogs: the Settings window while it is open, so they open
+/// in front of it, else the main window.
+pub(crate) fn dialog_parent(app: &AppHandle) -> Option<gtk::Window> {
+    crate::settings::window().or_else(|| app.get_window("main").and_then(|w| w.gtk_window().ok()).map(|w| w.upcast()))
 }
 
-fn message(app: &AppHandle, kind: gtk::MessageType, buttons: gtk::ButtonsType, text: &str, secondary: &str) -> gtk::ResponseType {
+pub(crate) fn message(app: &AppHandle, title: &str, kind: gtk::MessageType, buttons: gtk::ButtonsType, text: &str, secondary: &str) -> gtk::ResponseType {
     let mut builder = gtk::MessageDialog::builder()
-        .title("App Icon")
+        .title(title)
         .message_type(kind)
         .buttons(buttons)
         .text(text)
         .secondary_text(secondary);
-    if let Some(parent) = main_gtk_window(app) {
+    if let Some(parent) = dialog_parent(app) {
         builder = builder.transient_for(&parent);
     }
     let dialog = builder.build();
@@ -286,7 +261,7 @@ pub fn choose(app: &AppHandle) {
     filter.add_pattern("*.svg");
     let dialog = gtk::FileChooserNative::new(
         Some("Choose App Icon"),
-        main_gtk_window(app).as_ref(),
+        dialog_parent(app).as_ref(),
         gtk::FileChooserAction::Open,
         Some("Open"),
         Some("Cancel"),
@@ -298,18 +273,19 @@ pub fn choose(app: &AppHandle) {
     let Some(path) = dialog.filename() else { return };
     let path = path.to_string_lossy().into_owned();
     let Some(image) = load_image(&path) else {
-        message(app, gtk::MessageType::Error, gtk::ButtonsType::Ok, "That file could not be read as an image.", &path);
+        message(app, "App Icon", gtk::MessageType::Error, gtk::ButtonsType::Ok, "That file could not be read as an image.", &path);
         return;
     };
-    save_config(app, &Config { app_icon: path });
+    config::update(app, |c| c.app_icon = path);
     crate::apply_icon(app);
     if supported() {
         let yes = message(
             app,
+            "App Icon",
             gtk::MessageType::Question,
             gtk::ButtonsType::YesNo,
             "Also use it for the taskbar and launcher?",
-            "This copies the icon into your icon theme under ~/.local/share/icons. It shows on the next start, on some desktops after you log in again. You can change this later under App Icon.",
+            "This copies the icon into your icon theme under ~/.local/share/icons. It shows on the next start, on some desktops after you log in again. You can change this later under Settings.",
         ) == gtk::ResponseType::Yes;
         if yes {
             install(&image);
@@ -317,16 +293,16 @@ pub fn choose(app: &AppHandle) {
             remove();
         }
     }
-    crate::rebuild_tray_menu(app);
 }
 
 pub fn toggle_theme(app: &AppHandle) {
     if installed() {
         remove();
-    } else if let Some(image) = load_image(&load_config(app).app_icon) {
+    } else if let Some(image) = load_image(&config::load(app).app_icon) {
         if install(&image) {
             message(
                 app,
+                "App Icon",
                 gtk::MessageType::Info,
                 gtk::ButtonsType::Ok,
                 "The taskbar and launcher pick up the icon on the next start.",
@@ -334,14 +310,12 @@ pub fn toggle_theme(app: &AppHandle) {
             );
         }
     }
-    crate::rebuild_tray_menu(app);
 }
 
 pub fn reset(app: &AppHandle) {
-    save_config(app, &Config::default());
+    config::update(app, |c| c.app_icon.clear());
     crate::apply_icon(app);
     remove();
-    crate::rebuild_tray_menu(app);
 }
 
 #[cfg(test)]

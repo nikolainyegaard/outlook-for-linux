@@ -8,7 +8,8 @@
 // - on a count increase, raises a Notification per new unread row (sender +
 //   subject), falling back to a generic one when no new row is identifiable;
 //   the constructor is the one notification path WebKitGTK delivers to the
-//   embedder, where the native side forwards it over DBus
+//   embedder, where the native side forwards it over DBus and relays a click
+//   on the toast back to the Notification's onclick, which opens the message
 // ponytail: anchored to English OWA labels ("Inbox", "Unread"); other display
 // languages degrade to a bare title and no notifications.
 (() => {
@@ -56,9 +57,21 @@
     return { sender, subject, preview };
   };
 
-  const fire = (title, body) => {
+  // The native side forwards the notification to the desktop and, when the
+  // toast is clicked, reports the click back here. Opening the message is
+  // done the way a user would: a click on its list row (mousedown first,
+  // OWA selects on that), which shows it in the reading pane.
+  const fire = (title, body, row) => {
     try {
-      new Notification(title, { body });
+      const n = new Notification(title, { body });
+      n.onclick = () => {
+        window.focus();
+        if (row && row.isConnected) {
+          for (const type of ["mousedown", "mouseup", "click"]) {
+            row.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+          }
+        }
+      };
     } catch (e) {
       console.warn("[unread-title] notification failed:", e.message);
     }
@@ -92,7 +105,7 @@
         for (const row of fresh.slice(0, 3)) {
           const { sender, subject, preview } = extract(row);
           const body = [subject, preview].filter(Boolean).join("\n");
-          fire(sender || "New email", body || `${unread} unread emails`);
+          fire(sender || "New email", body || `${unread} unread emails`, row);
         }
         if (fresh.length > 3) {
           fire("New email", `${fresh.length} new emails, ${unread} unread`);
