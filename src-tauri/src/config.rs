@@ -1,5 +1,5 @@
-//! Runtime config: config.json in the app config dir, one file for the icon
-//! and the profiles. Read on demand (it is tiny) and always written whole,
+//! Runtime config: config.json in the app config dir, one file for the icon,
+//! the profiles, notifications and the update check. Read on demand (it is tiny) and always written whole,
 //! so every writer goes through `update` and never clobbers another key.
 
 use std::fs;
@@ -50,11 +50,33 @@ pub struct Notifications {
     pub sound: bool,
     /// Red dot on the tray icon while there is unread mail.
     pub tray_badge: bool,
+    /// Unread counts next to background profiles in the switcher dropdown.
+    pub switcher_unread: bool,
 }
 
 impl Default for Notifications {
     fn default() -> Self {
-        Self { enabled: true, only_when_hidden: false, preview: true, sound: true, tray_badge: true }
+        Self { enabled: true, only_when_hidden: false, preview: true, sound: true, tray_badge: true, switcher_unread: true }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Updates {
+    /// Ask the GitHub releases API for a newer version on the schedule below.
+    pub check: bool,
+    /// Days between automatic checks; 0 checks on every launch.
+    pub interval_days: u32,
+    /// Unix time of the last check, by hand or automatic.
+    pub last_check: i64,
+    /// The tag Update Now installed last; not offered again if the new
+    /// binary still reports an older version.
+    pub last_installed: String,
+}
+
+impl Default for Updates {
+    fn default() -> Self {
+        Self { check: true, interval_days: 0, last_check: 0, last_installed: String::new() }
     }
 }
 
@@ -69,6 +91,7 @@ pub struct Config {
     pub active_profile: String,
     pub profiles: Vec<Profile>,
     pub notifications: Notifications,
+    pub updates: Updates,
 }
 
 impl Default for Config {
@@ -79,6 +102,7 @@ impl Default for Config {
             active_profile: DEFAULT_PROFILE.into(),
             profiles: vec![Profile::new(DEFAULT_PROFILE.into(), "Default".into())],
             notifications: Notifications::default(),
+            updates: Updates::default(),
         }
     }
 }
@@ -161,8 +185,19 @@ mod tests {
         let cfg: Config = serde_json::from_str(r#"{"profiles": [{"id": "a", "name": "A"}]}"#).unwrap();
         assert!(cfg.notifies("a"));
         assert!(cfg.notifications.tray_badge);
+        assert!(cfg.notifications.switcher_unread);
         let muted: Config = serde_json::from_str(r#"{"profiles": [{"id": "a", "name": "A", "notifications": false}]}"#).unwrap();
         assert!(!muted.notifies("a"));
+    }
+
+    #[test]
+    fn old_config_checks_for_updates_on_every_launch() {
+        let cfg: Config = serde_json::from_str(r#"{"app_icon": ""}"#).unwrap();
+        assert!(cfg.updates.check);
+        assert_eq!(cfg.updates.interval_days, 0);
+        let weekly: Config = serde_json::from_str(r#"{"updates": {"check": false, "interval_days": 7}}"#).unwrap();
+        assert!(!weekly.updates.check);
+        assert_eq!(weekly.updates.interval_days, 7);
     }
 
     #[test]

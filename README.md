@@ -15,6 +15,7 @@ A spiritual companion to [teams-for-linux](https://github.com/IsmaelMartinez/tea
 - Menubar: File (new message in its own window, hide, quit), Edit, View (refresh, zoom with Ctrl+=, Ctrl+- and Ctrl+0) and Help
 - Profiles: several accounts in one window, switched from the Profile dropdown at the right end of the menubar; see [Profiles](#profiles)
 - Light footprint: no bundled Chromium, uses the system WebKitGTK
+- Update check on launch (one request to the GitHub releases API, switchable under Settings, Updates) with a notification when a newer version is out, and Update Now, which replaces the installed rpm, deb or AppImage and restarts
 - Custom app icon: pick any PNG or SVG under Settings, optionally copied into your icon theme so the taskbar and launcher follow; see [App icon](#app-icon) for the official logo
 
 ## App icon

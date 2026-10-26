@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Update check: on every launch by default, Outlook asks the GitHub releases API (one `curl` request, nothing downloaded) and shows a desktop notification when a newer version exists; the click opens Settings, General, Updates. The page has the automatic check switch and interval (every launch, daily, weekly, monthly), Check Now, a Release page link and Update Now, which replaces this copy the way it was installed: `dnf` or `apt` through polkit for packages, in place for the AppImage, then restarts. Help > Check for Updates… opens the page and checks. `updates` in config.json
+- Notifications setting to hide the unread counts next to background profiles in the Profile dropdown (`switcher_unread`)
+
+### Fixed
+
+- Scrolling over a Settings page that fits no longer shows the move cursor
+- Clicking a notification, or Open in the tray, no longer stacks a loaded background profile under the selected one in the same window
+
 ## [0.7.0] - 2026-10-24
 
 ### Added

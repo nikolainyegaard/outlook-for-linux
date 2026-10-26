@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use gtk::prelude::*;
 use tauri::{AppHandle, Manager};
 
-use crate::{app_icon, config, profiles};
+use crate::{app_icon, config, profiles, update};
 
 type Build = fn(&AppHandle, &gtk::Box) -> gtk::Widget;
 
@@ -34,11 +34,18 @@ struct Page {
     build: Build,
 }
 
-const PAGES: [Page; 3] = [
+const PAGES: [Page; 4] = [
     Page { title: "Notifications", keywords: "toast sound preview badge mute alert new mail", build: build_notifications },
     Page { title: "Background profiles", keywords: "unload memory ram timeout minutes", build: build_unload },
     Page { title: "App icon", keywords: "icon picture image taskbar launcher tray logo", build: build_icon },
+    Page { title: "Updates", keywords: "update upgrade version release new check install", build: build_updates },
 ];
+
+/// Row key of the Updates page, for `open_at` and `redraw`.
+pub const UPDATES: &str = "page:3";
+
+/// (days, label); 0 is every launch.
+const CHECK_INTERVALS: [(u32, &str); 4] = [(0, "On every launch"), (1, "Daily"), (7, "Weekly"), (30, "Monthly")];
 
 const ADD_KEY: &str = "add";
 
@@ -82,13 +89,15 @@ list.settings-group row { padding: 0 12px; min-height: 40px; border-bottom: 1px 
 list.settings-group row:last-child { border-bottom: none; }
 ";
 
-/// The three navigation widgets, so pages can re-list profiles after a
-/// rename, add or remove.
+/// The navigation widgets and the page body, so pages can re-list
+/// profiles after a rename, add or remove, and `redraw` can rebuild the
+/// page that is showing.
 #[derive(Clone)]
 struct Nav {
     categories: gtk::ListBox,
     pages: gtk::ListBox,
     search: gtk::SearchEntry,
+    body: gtk::Box,
 }
 
 thread_local! {
@@ -107,6 +116,17 @@ pub fn close() {
     if let Some(w) = window() {
         w.close();
     }
+}
+
+/// Rebuild the General page keyed `key` if it is the one showing, after
+/// state it displays changed elsewhere (the update check, for one). Safe
+/// to call while Settings is closed. Not from inside a signal handler of
+/// a widget on that page: defer with idle_add_local_once there.
+pub fn redraw(app: &AppHandle, key: &str) {
+    let Some(nav) = NAV.with(|n| n.borrow().clone()) else { return };
+    let Some(row) = nav.pages.selected_row().filter(|r| r.widget_name() == key) else { return };
+    let Some(page) = row.widget_name().strip_prefix("page:").and_then(|i| i.parse::<usize>().ok()).and_then(|i| PAGES.get(i)) else { return };
+    refresh(app, &nav.body, page.build);
 }
 
 fn unload_id(value: Option<u32>) -> String {
@@ -353,7 +373,9 @@ pub fn open_at(app: &AppHandle, key: Option<&str>) {
     page.pack_start(&heading, false, false, 0);
     let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
     page.pack_start(&body, true, true, 0);
-    let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&page).build();
+    // kinetic-scrolling off: with it on, a wheel or touchpad scroll over a
+    // page that fits shows GTK's all-scroll (move) cursor and does nothing.
+    let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).kinetic_scrolling(false).child(&page).build();
     scroller.style_context().add_class("settings-page");
 
     let layout = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -426,7 +448,7 @@ pub fn open_at(app: &AppHandle, key: Option<&str>) {
         fill(&list, entries, None);
     });
 
-    NAV.with(|n| *n.borrow_mut() = Some(Nav { categories: categories.clone(), pages: pages.clone(), search: search.clone() }));
+    NAV.with(|n| *n.borrow_mut() = Some(Nav { categories: categories.clone(), pages: pages.clone(), search: search.clone(), body: body.clone() }));
     categories.select_row(categories.row_at_index(GENERAL).as_ref());
     WINDOW.with(|w| *w.borrow_mut() = Some(win.clone()));
     win.show_all();
@@ -605,6 +627,14 @@ fn build_notifications(app: &AppHandle, container: &gtk::Box) -> gtk::Widget {
         config::update(&a, |c| c.notifications.tray_badge = on);
         crate::refresh_tray_badge(&a);
     });
+    let switcher_title = section("Profile switcher");
+    switcher_title.set_margin_top(12);
+    outer.pack_start(&switcher_title, false, false, 0);
+    let a = app.clone();
+    check(&outer, "Show unread counts next to background profiles", "In the Profile dropdown on the menubar, for loaded profiles other than the selected one.", n.switcher_unread, true, move |on| {
+        config::update(&a, |c| c.notifications.switcher_unread = on);
+        profiles::refresh_switcher(&a);
+    });
     outer.upcast()
 }
 
@@ -770,5 +800,121 @@ fn profile_page(app: &AppHandle, id: &str) -> gtk::Widget {
     });
     remove_row.pack_start(&remove, false, false, 0);
     block(&outer, &remove_row);
+    outer.upcast()
+}
+
+/// The update check and Update Now; the state lives in `update`, which
+/// calls `redraw` when it changes.
+fn build_updates(app: &AppHandle, container: &gtk::Box) -> gtk::Widget {
+    let config = config::load(app);
+    let u = &config.updates;
+    let state = update::state();
+    let outer = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    outer.pack_start(&hint("Asks the GitHub releases page for a newer version: one small request, nothing is downloaded until you press Update Now."), false, false, 0);
+    let title = section("Automatic check");
+    title.set_margin_top(8);
+    outer.pack_start(&title, false, false, 0);
+    let (a, c) = (app.clone(), container.clone());
+    check(&outer, "Check for updates automatically", "", u.check, true, move |on| {
+        config::update(&a, |c| c.updates.check = on);
+        let (a, c) = (a.clone(), c.clone());
+        gtk::glib::idle_add_local_once(move || refresh(&a, &c, build_updates));
+    });
+    let when = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    when.set_margin_start(26);
+    when.pack_start(&label("Check", &[]), false, false, 0);
+    let combo = gtk::ComboBoxText::new();
+    for (days, text) in CHECK_INTERVALS {
+        combo.append(Some(&days.to_string()), text);
+    }
+    if !CHECK_INTERVALS.iter().any(|(d, _)| *d == u.interval_days) {
+        combo.append(Some(&u.interval_days.to_string()), &format!("Every {} days", u.interval_days));
+    }
+    combo.set_active_id(Some(&u.interval_days.to_string()));
+    combo.set_sensitive(u.check);
+    let a = app.clone();
+    combo.connect_changed(move |c| {
+        if let Some(days) = c.active_id().and_then(|id| id.parse::<u32>().ok()) {
+            config::update(&a, |c| c.updates.interval_days = days);
+        }
+    });
+    when.pack_start(&combo, false, false, 0);
+    outer.pack_start(&when, false, false, 0);
+
+    // Check now and what it found.
+    let check_title = section("This copy");
+    check_title.set_margin_top(12);
+    outer.pack_start(&check_title, false, false, 0);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    let now = gtk::Button::with_label("Check Now");
+    now.set_sensitive(!state.busy());
+    let a = app.clone();
+    now.connect_clicked(move |_| {
+        let a = a.clone();
+        gtk::glib::idle_add_local_once(move || update::start_check(&a, false));
+    });
+    row.pack_start(&now, false, false, 0);
+    if state.checking {
+        let spinner = gtk::Spinner::new();
+        spinner.start();
+        row.pack_start(&spinner, false, false, 0);
+        row.pack_start(&label("Checking\u{2026}", &["dim-label"]), false, false, 0);
+    } else {
+        match &state.result {
+            Some(update::UpdateResult::Newer(tag)) => {
+                row.pack_start(&label(&format!("Version {} is available, this is {}", tag.trim_start_matches('v'), update::VERSION), &[]), false, false, 0);
+            }
+            Some(update::UpdateResult::Current) => {
+                row.pack_start(&label(&format!("Version {} is the latest release", update::VERSION), &["dim-label"]), false, false, 0);
+            }
+            Some(update::UpdateResult::Failed(e)) => {
+                row.pack_start(&markup(&format!("<span foreground=\"#da4453\">{}</span>", escape(e)), &[]), false, false, 0);
+            }
+            None => {
+                row.pack_start(&label(&format!("Version {}", update::VERSION), &["dim-label"]), false, false, 0);
+            }
+        }
+    }
+    row.pack_start(&gtk::LinkButton::with_label(update::RELEASES_URL, "Release page"), false, false, 0);
+    outer.pack_start(&row, false, false, 0);
+
+    if state.available(&config).is_some() {
+        let update_title = section("Update");
+        update_title.set_margin_top(12);
+        outer.pack_start(&update_title, false, false, 0);
+        let can = state.install.as_ref().is_some_and(update::Install::can_update);
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let button = gtk::Button::with_label("Update Now");
+        button.style_context().add_class("suggested-action");
+        button.set_sensitive(can && !state.busy());
+        let a = app.clone();
+        button.connect_clicked(move |_| {
+            let a = a.clone();
+            gtk::glib::idle_add_local_once(move || update::start_update(&a));
+        });
+        row.pack_start(&button, false, false, 0);
+        if let Some(p) = &state.progress {
+            let spinner = gtk::Spinner::new();
+            spinner.start();
+            row.pack_start(&spinner, false, false, 0);
+            row.pack_start(&label(p, &["dim-label"]), false, false, 0);
+        } else if let Some(i) = &state.install {
+            row.pack_start(&label(&format!("This copy is {}", i.label()), &["dim-label", "settings-small"]), false, false, 0);
+        }
+        outer.pack_start(&row, false, false, 0);
+        outer.pack_start(
+            &hint(if can {
+                "Replaces this copy the way it was installed: through the package manager with the desktop's password prompt for a package, in place for an AppImage. Outlook then restarts."
+            } else {
+                "This copy cannot update itself. Download the new version from the release page and install it the way you installed this one."
+            }),
+            false,
+            false,
+            0,
+        );
+        if let Some(e) = &state.error {
+            outer.pack_start(&markup(&format!("<span foreground=\"#da4453\">{}</span>", escape(e)), &[]), false, false, 0);
+        }
+    }
     outer.upcast()
 }

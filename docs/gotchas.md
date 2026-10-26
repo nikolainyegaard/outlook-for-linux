@@ -38,3 +38,11 @@
 - **`javascript-can-open-windows-automatically` must stay on.** OWA's link click handler awaits a Safe Links lookup before calling window.open, so the call runs outside the user gesture and WebKitGTK blocks it silently by default: first click does nothing, second click (lookup cached) works. The setting is harmless here because the new-window handler never creates a webview.
 - **Icon filenames must stay RGBA.** tauri-build rejects non-RGBA PNGs; regenerate with ImageMagick using the `PNG32:` output prefix.
 - **AppImage bundling needs `NO_STRIP=true`.** linuxdeploy ships a binutils too old for the `.relr.dyn` relocations in Fedora's shared libraries; its strip step fails on every library and Tauri reports only "failed to run linuxdeploy". The npm build script sets the variable; the deb and rpm are unaffected. The AppImage is a bit larger as a result.
+
+## Update Now: file names and pkexec
+
+`update.rs` downloads `outlook-for-linux-<v>-1.<arch>.rpm`, `outlook-for-linux_<v>_<amd64|arm64>.deb` or `outlook-for-linux_<v>_<amd64|aarch64>.AppImage` plus `SHA256SUMS` from the release. Those are the names the Tauri bundler and release.yml produce; a rename there breaks Update Now silently (a 404 shows as a failed download). Installs go through `pkexec`, which shows the desktop's own password prompt; `sudo` has no terminal here. The install is detected on the check thread (`dnf repoquery` can take a second), never on the main thread. After the install the new binary is spawned detached and the app exits; the AppImage keeps running from its mounted old file during the rename. The update state is a thread_local on the main thread and Settings rebuilds its Updates page through `settings::redraw` whenever it changes.
+
+## Window::show shows every child webview
+
+tao implements `Window::show` with `gtk_widget_show_all`, so a hidden background profile webview reappears under the active one, splitting the window in two. Every path that shows the main window (`show_main`: tray Open, second launch, toast click) calls `profiles::hide_inactive` right after.

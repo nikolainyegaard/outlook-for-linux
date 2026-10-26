@@ -26,9 +26,10 @@ outlook-for-linux/
     └── src/
         ├── main.rs              # main window + menubar, compose windows, webview setup, notifications, mailto, tray
         ├── app_icon.rs          # app icon: picker, tray badge, icon theme copy, GTK dialogs
-        ├── config.rs            # config.json: icon, profiles, unload timeout
+        ├── config.rs            # config.json: icon, profiles, unload timeout, notifications, updates
         ├── profiles.rs          # profile switcher: per-profile webviews, unload timer, GTK dropdown, rename/remove
         ├── settings.rs          # Settings window: categories, page list and page pane, Outlook layout
+        ├── update.rs            # update check (curl, GitHub releases API) and Update Now (dnf/apt via pkexec, AppImage rename)
         ├── webauthn.rs          # Rust CTAP2 client (the actual authenticator driver)
         ├── webauthn_polyfill.js # PublicKeyCredential polyfill + overlay UI
         └── unread_title.js      # DOM-driven unread count in title + new-mail notifications

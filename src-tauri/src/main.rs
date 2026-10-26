@@ -5,6 +5,7 @@ mod app_icon;
 mod config;
 mod profiles;
 mod settings;
+mod update;
 mod webauthn;
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -104,6 +105,9 @@ fn main_webview(app: &AppHandle) -> Option<Webview> {
 fn show_main(app: &AppHandle) {
     if let Some(w) = main_window(app) {
         let _ = w.show();
+        // Window::show is gtk_widget_show_all on Linux: it brings every
+        // hidden background profile along, stacked under the active one.
+        profiles::hide_inactive(app);
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
@@ -268,6 +272,7 @@ fn menubar(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         true,
         &[
             &MenuItem::with_id(app, "github", "GitHub Repository", true, None::<&str>)?,
+            &MenuItem::with_id(app, "check-updates", "Check for Updates\u{2026}", true, None::<&str>)?,
             &PredefinedMenuItem::about(app, Some("About"), Some(about))?,
         ],
     )?;
@@ -324,6 +329,10 @@ fn menu_action(app: &AppHandle, id: &str) {
         }
         // GTK dialog: make sure it runs on the main thread.
         "settings" => on_main(app, settings::open),
+        "check-updates" => on_main(app, |app| {
+            settings::open_at(app, Some(settings::UPDATES));
+            update::start_check(app, false);
+        }),
         "quit" => app.exit(0),
         _ => {}
     }
@@ -657,6 +666,7 @@ fn main() {
             setup_tray(app.handle())?;
             open_main(app.handle())?;
             apply_icon(app.handle());
+            update::check_at_start(app.handle());
 
             // Launched directly as a mailto: handler while not yet running.
             if let Some(m) = std::env::args().find(|a| a.starts_with("mailto:")) {
