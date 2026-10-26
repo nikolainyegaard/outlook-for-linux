@@ -3,6 +3,7 @@
 
 mod app_icon;
 mod config;
+mod ics;
 mod profiles;
 mod settings;
 mod update;
@@ -70,6 +71,22 @@ fn open_compose(app: &AppHandle, mailto: &str) {
     if let Some(url) = mailto_to_compose(mailto) {
         open_compose_url(app, &url);
     }
+}
+
+/// A launch argument that is an .ics file, from a double-click or a
+/// "open with": the first event goes into a calendar compose window.
+fn open_ics_from_args(app: &AppHandle, argv: &[String]) -> bool {
+    let Some(path) = argv.iter().find_map(|a| ics::path_from_arg(a)) else { return false };
+    match ics::compose_url_for(&path) {
+        Ok(url) => open_compose_url(app, &url),
+        Err(e) => {
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                app_icon::message(&handle, "Open Calendar File", gtk::MessageType::Error, gtk::ButtonsType::Ok, "This calendar file cannot be opened.", &e);
+            });
+        }
+    }
+    true
 }
 
 fn open_compose_url(app: &AppHandle, url: &str) {
@@ -480,8 +497,30 @@ fn open_compose_window(app: &AppHandle, label: &str, url: &str) -> tauri::Result
         window.gtk_window()?.set_titlebar(None::<&gtk::Widget>);
     }
     configure_webview(window.as_ref(), None)?;
+    // After Send or Save, OWA calls window.close(). wry answers WebKit's
+    // close signal by destroying the webview widget and nothing else, which
+    // leaves the window standing empty; take the window down with it.
+    #[cfg(target_os = "linux")]
+    {
+        let (handle, label) = (app.clone(), label.to_string());
+        window.as_ref().with_webview(move |webview| {
+            gtk::prelude::WidgetExt::connect_destroy(&webview.inner(), move |_| close_window(&handle, &label));
+        })?;
+    }
     window.show()?;
     Ok(())
+}
+
+/// Close a compose window from a GTK signal; deferred so nothing is torn
+/// down while the signal is still being delivered.
+#[cfg(target_os = "linux")]
+fn close_window(app: &AppHandle, label: &str) {
+    let (app, label) = (app.clone(), label.to_string());
+    gtk::glib::idle_add_local_once(move || {
+        if let Some(w) = app.get_webview_window(&label) {
+            let _ = w.close();
+        }
+    });
 }
 
 /// WebKit-level setup every OWA webview needs: window.open policy, WebAuthn,
@@ -642,6 +681,9 @@ fn main() {
                 let _ = app.run_on_main_thread(move || settings::open_at(&handle, key.as_deref()));
                 return;
             }
+            if open_ics_from_args(app, &argv) {
+                return;
+            }
             match argv.iter().find(|a| a.starts_with("mailto:")) {
                 Some(m) => open_compose(app, m),
                 None => show_main(app),
@@ -668,9 +710,12 @@ fn main() {
             apply_icon(app.handle());
             update::check_at_start(app.handle());
 
-            // Launched directly as a mailto: handler while not yet running.
-            if let Some(m) = std::env::args().find(|a| a.starts_with("mailto:")) {
-                open_compose(app.handle(), &m);
+            // Launched directly as a mailto: or .ics handler while not yet running.
+            let args: Vec<String> = std::env::args().collect();
+            if !open_ics_from_args(app.handle(), &args) {
+                if let Some(m) = args.iter().find(|a| a.starts_with("mailto:")) {
+                    open_compose(app.handle(), m);
+                }
             }
 
             Ok(())

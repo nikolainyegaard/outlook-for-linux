@@ -7,4 +7,4 @@ Icon=outlook-for-linux
 Name=Outlook for Linux
 Terminal=false
 Type=Application
-MimeType=x-scheme-handler/mailto
+MimeType=x-scheme-handler/mailto;text/calendar;

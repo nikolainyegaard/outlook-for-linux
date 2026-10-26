@@ -27,7 +27,7 @@ The icon theme copy keeps its own manifest at `$XDG_DATA_HOME/outlook-for-linux/
 | `app.windows` | `[]` | The window is built in code (main.rs) because injecting a document-start script requires the builder. |
 | `app.security.csp` | `null` | CSP is controlled by Microsoft's own headers, not by us. |
 | `bundle.targets` | deb, rpm, appimage | Linux only. |
-| `bundle.linux.deb/rpm.desktopTemplate` | `./main.desktop` | Custom template; the default one misses `%u` in Exec so mailto URLs never reach the app. |
+| `bundle.linux.deb/rpm.desktopTemplate` | `./main.desktop` | Custom template; the default one misses `%u` in Exec so mailto URLs never reach the app. Its MimeType line is literal and carries both `x-scheme-handler/mailto` and `text/calendar`. |
 | `plugins.deep-link.desktop.schemes` | `["mailto"]` | Bundle-time only: makes the bundler add the MimeType line to the .desktop. The runtime deep-link plugin is not used; argv is parsed directly. |
 | `identifier` | `com.nikolainyegaard.outlookforlinux` | Do not change after first release; it keys desktop entries and data dirs. |
 

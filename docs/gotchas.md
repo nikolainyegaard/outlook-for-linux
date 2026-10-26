@@ -46,3 +46,7 @@
 ## Window::show shows every child webview
 
 tao implements `Window::show` with `gtk_widget_show_all`, so a hidden background profile webview reappears under the active one, splitting the window in two. Every path that shows the main window (`show_main`: tray Open, second launch, toast click) calls `profiles::hide_inactive` right after.
+
+## Compose windows end with an empty window
+
+After Send or Save, OWA calls `window.close()`, which WebCore allows here because the compose window has a single history entry. WebKit raises the `close` signal; wry's handler destroys the WebKitWebView widget and stops there, so the Tauri window stays open with nothing in it. No navigation, title change or close request reaches the app. `open_compose_window` hooks the widget's `destroy` signal and closes the window from an idle callback.

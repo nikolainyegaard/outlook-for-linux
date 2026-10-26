@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- .ics files open in a prefilled new-event window: the app registers for text/calendar, reads the first event (subject, start, end, location, description, attendees) and opens Outlook's calendar compose deep link. Recurrence and invitation semantics are not carried over
+
+### Fixed
+
+- A compose window closes when Outlook is done with it (Save on an event, Send on a message) instead of staying open blank
+
 ## [0.8.0] - 2026-10-26
 
 ### Added

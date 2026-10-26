@@ -10,6 +10,7 @@ A spiritual companion to [teams-for-linux](https://github.com/IsmaelMartinez/tea
 - FIDO2 USB security key (passkey) sign-in, implemented in the app itself: WebKitGTK ships without WebAuthn, so the app injects a `PublicKeyCredential` polyfill on the Microsoft login pages and drives the key over USB HID (CTAP2) from Rust
 - Desktop notifications for new mail with sender, subject and body preview, read from the page itself (OWA never raises web notifications in WebKitGTK). Clicking one opens the message. Settings has switches for the preview, the sound, notifications only while the window is hidden, the tray badge, and per profile
 - Registers as mailto handler: email links open a prefilled OWA compose window; set it as the default email app in your desktop's settings
+- Opens .ics calendar files: the event comes up prefilled in a new-event window (subject, time, location, description, attendees), you press Save. Recurrence and the RSVP meaning of an invitation are not carried over
 - Single instance: relaunching focuses the existing window
 - Tray icon with unread badge; closing the window keeps the app running in the tray, quit from the tray menu or from File. Ctrl+H, Ctrl+R and Ctrl+Q hide, refresh and quit from the main window
 - Menubar: File (new message in its own window, hide, quit), Edit, View (refresh, zoom with Ctrl+=, Ctrl+- and Ctrl+0) and Help
