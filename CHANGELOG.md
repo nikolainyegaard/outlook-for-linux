@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-26
+
 ### Added
 
 - Update check: on every launch by default, Outlook asks the GitHub releases API (one `curl` request, nothing downloaded) and shows a desktop notification when a newer version exists; the click opens Settings, General, Updates. The page has the automatic check switch and interval (every launch, daily, weekly, monthly), Check Now, a Release page link and Update Now, which replaces this copy the way it was installed: `dnf` or `apt` through polkit for packages, in place for the AppImage, then restarts. Help > Check for Updates… opens the page and checks. `updates` in config.json
@@ -118,7 +120,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.5.0...v0.6.0
