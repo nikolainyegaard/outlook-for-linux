@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - .ics files open in a prefilled new-event window: the app registers for text/calendar, reads the first event (subject, start, end, location, description, attendees) and opens Outlook's calendar compose deep link. Recurrence and invitation semantics are not carried over
 
+### Changed
+
+- Security key sign-in no longer stops at a "Try again" button when no key is plugged in: the prompt waits, and sign-in continues on its own as soon as a key is inserted
+
 ### Fixed
 
 - A compose window closes when Outlook is done with it (Save on an event, Send on a message) instead of staying open blank

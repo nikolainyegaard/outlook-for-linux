@@ -154,20 +154,31 @@
     console.log('[webauthn] get() rpId=' + request.rpId + ' allowCredentials=' + request.allowCredentials.length + ' uv=' + request.userVerification);
 
     const done = new Promise((resolve, reject) => {
-      rejectActive = (name, msg) => reject(new DOMException(msg, name));
+      let settled = false;
+      const fail = (name, msg) => { settled = true; reject(new DOMException(msg, name)); };
+      rejectActive = fail;
       if (options.signal) {
-        options.signal.addEventListener('abort', () => { closeOverlay(); reject(new DOMException('Aborted.', 'AbortError')); }, { once: true });
+        options.signal.addEventListener('abort', () => { closeOverlay(); fail('AbortError', 'Aborted.'); }, { once: true });
       }
       (async () => {
-        let pinErr = null, pinRetries = null;
+        let pinErr = null, pinRetries = null, keyMissing = false;
         for (;;) {
+          // While the key is missing we poll the Rust side about once a second
+          // (one HID enumeration per call) and keep the "insert" card up; a call
+          // that does not come straight back as no-device means a key is there
+          // and waiting for touch, so switch to the touch prompt only then.
+          const touchTimer = setTimeout(showTouch, keyMissing ? 500 : 0);
           try {
-            showTouch();
             resolve(await invoke('webauthn_get_assertion', { request }));
+            settled = true;
             return;
           } catch (e) {
+            clearTimeout(touchTimer);
+            if (settled) return;
             const code = e && e.code;
             console.error('[webauthn] error code=' + code + ' message=' + ((e && e.message) || JSON.stringify(e)));
+            const wasMissing = keyMissing;
+            keyMissing = code === 'no-device';
             if (code === 'pin-required' || code === 'pin-invalid') {
               if (code === 'pin-invalid') { pinErr = 'Wrong PIN.'; pinRetries = e.pinRetries; }
               const pin = await askPin(pinErr, pinRetries);
@@ -176,16 +187,15 @@
               continue;
             }
             if (code === 'no-device') {
-              const root = overlay(`<div class="key">🔑</div><h3>No security key found</h3>
-                <p>Insert your security key, then try again.</p>
-                <div><button id="cancel">Cancel</button><button id="retry" class="primary">Try again</button></div>`);
-              const again = await new Promise((r) => {
-                root.getElementById('retry').onclick = () => r(true);
-                root.getElementById('cancel').onclick = () => r(false);
-              });
-              if (again) continue;
-              reject(new DOMException('No authenticator available.', 'NotAllowedError'));
-              return;
+              if (!wasMissing) {
+                overlay(`<div class="key">🔑</div><h3>No security key found</h3>
+                  <p>Insert your security key. Sign-in continues on its own.</p>
+                  <button id="cancel">Cancel</button>`)
+                  .getElementById('cancel').onclick = () => { closeOverlay(); fail('NotAllowedError', 'No authenticator available.'); };
+              }
+              await new Promise((r) => setTimeout(r, 1000));
+              if (settled) return;
+              continue;
             }
             const messages = {
               'pin-blocked': 'The security key PIN is blocked. Unplug and reinsert the key.',
