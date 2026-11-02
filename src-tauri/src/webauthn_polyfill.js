@@ -189,7 +189,7 @@
             if (code === 'no-device') {
               if (!wasMissing) {
                 overlay(`<div class="key">🔑</div><h3>No security key found</h3>
-                  <p>Insert your security key. Sign-in continues on its own.</p>
+                  <p>Insert your security key.</p>
                   <button id="cancel">Cancel</button>`)
                   .getElementById('cancel').onclick = () => { closeOverlay(); fail('NotAllowedError', 'No authenticator available.'); };
               }
