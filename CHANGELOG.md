@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-05
+
 ### Added
 
 - .ics files open in a prefilled new-event window: the app registers for text/calendar, reads the first event (subject, start, end, location, description, attendees) and opens Outlook's calendar compose deep link. Recurrence and invitation semantics are not carried over
@@ -133,7 +135,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The webview identifies as Chrome on Linux; Microsoft's login page hides the passkey option from unrecognized browsers
 
-[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/nikolainyegaard/outlook-for-linux/compare/v0.6.0...v0.6.1
