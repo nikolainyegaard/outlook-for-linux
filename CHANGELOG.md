@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Reopening the window from the tray, a notification click or a second launch no longer shows a loaded background profile stacked under the selected one; the v0.8.0 fix for this raced the window's own show and usually lost
 - A compose window closes when Outlook is done with it (Save on an event, Send on a message) instead of staying open blank
 
 ## [0.8.0] - 2026-10-26

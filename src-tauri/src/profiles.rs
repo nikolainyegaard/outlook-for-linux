@@ -147,19 +147,6 @@ pub fn activate(app: &AppHandle, id: &str) {
     refresh_switcher(app);
 }
 
-/// Hide every loaded profile but the active one. Needed after the main
-/// window's show(), which shows all children.
-pub fn hide_inactive(app: &AppHandle) {
-    let active = active_id(app);
-    for profile in config::load(app).profiles {
-        if profile.id != active {
-            if let Some(w) = app.get_webview(&webview_label(&profile.id)) {
-                let _ = w.hide();
-            }
-        }
-    }
-}
-
 fn load_webview(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webview> {
     let mut builder = crate::owa_webview(&webview_label(id), crate::OWA_URL);
     if let Some(dir) = data_dir(app, id) {

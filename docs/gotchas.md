@@ -46,7 +46,7 @@
 
 ## Window::show shows every child webview
 
-tao implements `Window::show` with `gtk_widget_show_all`, so a hidden background profile webview reappears under the active one, splitting the window in two. Every path that shows the main window (`show_main`: tray Open, second launch, toast click) calls `profiles::hide_inactive` right after.
+tao implements `Window::show` with `gtk_widget_show_all`, so a hidden background profile webview reappears under the active one, splitting the window in two. Hiding the background webviews right after `show()` does not work: tao queues the show on a glib channel and runs it after the caller returns, while a webview hide runs at once, so the hide lands first and the show_all undoes it (v0.8.0 shipped exactly that and the bug came back). Every path that shows the main window (`show_main`: tray Open, second launch, toast click) therefore calls `show()` on the GtkWindow itself, on the main thread, which maps the toplevel and leaves each child's own visible flag alone. Never reintroduce `Window::show` on the main window once more than one profile is loaded.
 
 ## Compose windows end with an empty window
 

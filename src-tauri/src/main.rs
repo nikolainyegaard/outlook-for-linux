@@ -120,14 +120,23 @@ fn main_webview(app: &AppHandle) -> Option<Webview> {
 }
 
 fn show_main(app: &AppHandle) {
-    if let Some(w) = main_window(app) {
-        let _ = w.show();
-        // Window::show is gtk_widget_show_all on Linux: it brings every
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some(w) = main_window(&handle) else { return };
+        // Not Window::show: tao runs that as gtk_widget_show_all from its
+        // request queue, after this function returns, and it brings every
         // hidden background profile along, stacked under the active one.
-        profiles::hide_inactive(app);
+        // Showing the toplevel alone keeps each child's own visibility.
+        use gtk::prelude::WidgetExt;
+        match w.gtk_window() {
+            Ok(gtk_window) => gtk_window.show(),
+            Err(_) => {
+                let _ = w.show();
+            }
+        }
         let _ = w.unminimize();
         let _ = w.set_focus();
-    }
+    });
 }
 
 fn hide_main(app: &AppHandle) {
