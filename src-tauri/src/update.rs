@@ -118,6 +118,56 @@ fn set(f: impl FnOnce(&mut State)) {
     STATE.with(|s| f(&mut s.borrow_mut()));
 }
 
+/// Settings and the menubar pill follow every change of `State`.
+fn changed(app: &AppHandle) {
+    settings::redraw(app, settings::UPDATES);
+    refresh_pill(app);
+}
+
+thread_local! {
+    static PILL: RefCell<Option<gtk::MenuItem>> = const { RefCell::new(None) };
+}
+
+const PILL_CSS: &str = "label { background-color: #f5c518; color: #1b1b1b; border-radius: 999px; padding: 1px 10px; font-weight: 600; }";
+
+/// "Update available" pill on the menubar, left of the profile switcher.
+/// Shown while a release can be installed; a click opens Settings on the
+/// Updates page.
+pub fn install_pill(app: &AppHandle, menubar: &gtk::MenuBar) {
+    use gtk::prelude::*;
+    let item = gtk::MenuItem::new();
+    let label = gtk::Label::new(Some("Update available"));
+    let provider = gtk::CssProvider::new();
+    let _ = provider.load_from_data(PILL_CSS.as_bytes());
+    label.style_context().add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+    label.show();
+    item.add(&label);
+    #[allow(deprecated)]
+    item.set_right_justified(true);
+    // Hidden until refresh_pill shows it; the window's show_all must not.
+    item.set_no_show_all(true);
+    let a = app.clone();
+    item.connect_activate(move |_| {
+        let a = a.clone();
+        gtk::glib::idle_add_local_once(move || settings::open_at(&a, Some(settings::UPDATES)));
+    });
+    menubar.append(&item);
+    PILL.with(|p| *p.borrow_mut() = Some(item));
+    refresh_pill(app);
+}
+
+fn refresh_pill(app: &AppHandle) {
+    use gtk::prelude::*;
+    let Some(item) = PILL.with(|p| p.borrow().clone()) else { return };
+    match state().available(&config::load(app)) {
+        Some(tag) => {
+            item.set_tooltip_text(Some(&format!("Version {} is available. Opens the Updates page.", tag.trim_start_matches('v'))));
+            item.show();
+        }
+        None => item.hide(),
+    }
+}
+
 fn unix_now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
 }
@@ -143,7 +193,7 @@ pub fn start_check(app: &AppHandle, automatic: bool) {
         s.result = None;
         s.error = None;
     });
-    settings::redraw(app, settings::UPDATES);
+    changed(app);
     let handle = app.clone();
     std::thread::Builder::new()
         .name("update-check".into())
@@ -161,7 +211,7 @@ pub fn start_check(app: &AppHandle, automatic: bool) {
                         s.install = Some(i);
                     }
                 });
-                settings::redraw(&app, settings::UPDATES);
+                changed(&app);
                 if automatic {
                     if let Some(tag) = state().available(&config::load(&app)) {
                         announce(&app, tag);
@@ -296,7 +346,7 @@ pub fn start_update(app: &AppHandle) {
         s.error = None;
         s.progress = Some("Starting\u{2026}".into());
     });
-    settings::redraw(app, settings::UPDATES);
+    changed(app);
     let cache_dir = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir()).join("update");
     let handle = app.clone();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -316,7 +366,7 @@ pub fn start_update(app: &AppHandle) {
             let _ = pump.run_on_main_thread(move || match event {
                 Event::Progress(p) => {
                     set(|s| s.progress = Some(p));
-                    settings::redraw(&app, settings::UPDATES);
+                    changed(&app);
                 }
                 Event::Done(Ok(exe)) => {
                     if let Some(UpdateResult::Newer(tag)) = state().result {
@@ -330,7 +380,7 @@ pub fn start_update(app: &AppHandle) {
                         Ok(()) => app.exit(0),
                         Err(e) => {
                             set(|s| s.error = Some(e));
-                            settings::redraw(&app, settings::UPDATES);
+                            changed(&app);
                         }
                     }
                 }
@@ -340,7 +390,7 @@ pub fn start_update(app: &AppHandle) {
                         s.progress = None;
                         s.error = Some(e);
                     });
-                    settings::redraw(&app, settings::UPDATES);
+                    changed(&app);
                 }
             });
         }

@@ -457,6 +457,7 @@ fn decorate_menubar(app: &AppHandle, window: &Window) -> tauri::Result<()> {
         vbox.reorder_child(&line, 0);
         line.show();
     }
+    update::install_pill(app, &menubar);
     profiles::install_switcher(app, &menubar);
     Ok(())
 }

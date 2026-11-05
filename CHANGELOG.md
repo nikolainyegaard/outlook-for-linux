@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- An "Update available" pill on the menubar, next to the profile switcher, while a newer release can be installed; clicking it opens Settings on the Updates page
+
 ### Fixed
 
 - The Settings window no longer grows wider as pages are opened; it opens at a fixed width and page text wraps to it
