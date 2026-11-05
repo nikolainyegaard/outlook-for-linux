@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The Settings window no longer grows wider as pages are opened; it opens at a fixed width and page text wraps to it
+
 ## [0.9.0] - 2026-11-05
 
 ### Added

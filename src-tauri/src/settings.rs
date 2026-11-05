@@ -303,7 +303,9 @@ pub fn open_at(app: &AppHandle, key: Option<&str>) {
 
     let win = gtk::Window::new(gtk::WindowType::Toplevel);
     win.set_title("Settings");
-    win.set_default_size(900, 600);
+    // Wide enough for the widest page row (profile name entry plus its
+    // hint); the page column does not grow with its content.
+    win.set_default_size(960, 600);
     // Not modal: KWin routes activation and close requests for a window
     // to its modal child, so a modal Settings swallowed the taskbar Close
     // meant for Outlook. Non-modal also lets mail be used meanwhile.
@@ -375,7 +377,11 @@ pub fn open_at(app: &AppHandle, key: Option<&str>) {
     page.pack_start(&body, true, true, 0);
     // kinetic-scrolling off: with it on, a wheel or touchpad scroll over a
     // page that fits shows GTK's all-scroll (move) cursor and does nothing.
-    let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).kinetic_scrolling(false).child(&page).build();
+    // Horizontal policy External, not Never: Never makes the scroller as
+    // wide as the widest page content, so the window grew with each wider
+    // page and never shrank back. External gives the page the column's
+    // width and the labels wrap to it.
+    let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::External).kinetic_scrolling(false).child(&page).build();
     scroller.style_context().add_class("settings-page");
 
     let layout = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -580,6 +586,10 @@ fn build_icon(app: &AppHandle, container: &gtk::Box) -> gtk::Widget {
 /// A check button with its explanation indented under the label.
 fn check(outer: &gtk::Box, text: &str, explanation: &str, active: bool, sensitive: bool, on_toggle: impl Fn(bool) + 'static) -> gtk::CheckButton {
     let button = gtk::CheckButton::with_label(text);
+    if let Some(label) = button.child().and_then(|c| c.downcast::<gtk::Label>().ok()) {
+        label.set_line_wrap(true);
+        label.set_xalign(0.0);
+    }
     button.set_active(active);
     button.set_sensitive(sensitive);
     button.connect_toggled(move |b| on_toggle(b.is_active()));
@@ -678,8 +688,6 @@ fn build_unload(app: &AppHandle, _container: &gtk::Box) -> gtk::Widget {
     let frame = gtk::Frame::new(None);
     frame.style_context().add_class("settings-group");
     frame.add(&list);
-    frame.set_halign(gtk::Align::Start);
-    frame.set_size_request(420, -1);
     outer.pack_start(&frame, false, false, 0);
     outer.pack_start(&hint("Profiles marked Keep loaded are exempt. Set it on each profile's page under Profiles."), false, false, 0);
     outer.upcast()
@@ -860,20 +868,15 @@ fn build_updates(app: &AppHandle, container: &gtk::Box) -> gtk::Widget {
         row.pack_start(&spinner, false, false, 0);
         row.pack_start(&label("Checking\u{2026}", &["dim-label"]), false, false, 0);
     } else {
-        match &state.result {
-            Some(update::UpdateResult::Newer(tag)) => {
-                row.pack_start(&label(&format!("Version {} is available, this is {}", tag.trim_start_matches('v'), update::VERSION), &[]), false, false, 0);
-            }
-            Some(update::UpdateResult::Current) => {
-                row.pack_start(&label(&format!("Version {} is the latest release", update::VERSION), &["dim-label"]), false, false, 0);
-            }
-            Some(update::UpdateResult::Failed(e)) => {
-                row.pack_start(&markup(&format!("<span foreground=\"#da4453\">{}</span>", escape(e)), &[]), false, false, 0);
-            }
-            None => {
-                row.pack_start(&label(&format!("Version {}", update::VERSION), &["dim-label"]), false, false, 0);
-            }
-        }
+        let status = match &state.result {
+            Some(update::UpdateResult::Newer(tag)) => label(&format!("Version {} is available, this is {}", tag.trim_start_matches('v'), update::VERSION), &[]),
+            Some(update::UpdateResult::Current) => label(&format!("Version {} is the latest release", update::VERSION), &["dim-label"]),
+            Some(update::UpdateResult::Failed(e)) => markup(&format!("<span foreground=\"#da4453\">{}</span>", escape(e)), &[]),
+            None => label(&format!("Version {}", update::VERSION), &["dim-label"]),
+        };
+        // Wraps: a curl error can be long, and the row must not widen the page.
+        status.set_line_wrap(true);
+        row.pack_start(&status, true, true, 0);
     }
     row.pack_start(&gtk::LinkButton::with_label(update::RELEASES_URL, "Release page"), false, false, 0);
     outer.pack_start(&row, false, false, 0);
